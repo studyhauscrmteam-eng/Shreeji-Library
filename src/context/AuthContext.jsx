@@ -106,9 +106,24 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  // Helper to normalize phone number to 10 digits
+  const normalizePhone = (phone) => {
+    if (!phone) return '';
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    // Handle +91 or 91 prefix
+    if (digits.length === 12 && digits.startsWith('91')) {
+      return digits.slice(2);
+    }
+    if (digits.length === 11 && digits.startsWith('0')) {
+      return digits.slice(1);
+    }
+    return digits;
+  };
+
   // Check uniqueness of Phone and Email across Firestore and Local Cache
   const checkUniquePhoneAndEmail = async (phone, email) => {
-    const cleanPhone = phone?.trim();
+    const cleanPhone = normalizePhone(phone);
     const cleanEmail = email?.trim()?.toLowerCase();
 
     // 1. Check Local storage records
@@ -180,14 +195,28 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: adminUser, role: 'admin' };
     }
 
+    // Normalize phone for lookup
+    const normalizedPhone = normalizePhone(cleanInput);
+    
     // Check if user is registered in Firestore database
     if (db) {
       try {
+        // Try exact match first, then normalized phone
         const qPhone = query(collection(db, 'users'), where('phone', '==', cleanInput));
+        const qPhoneNorm = normalizedPhone !== cleanInput ? query(collection(db, 'users'), where('phone', '==', normalizedPhone)) : null;
         const qEmail = query(collection(db, 'users'), where('email', '==', cleanInput.toLowerCase()));
         
-        const [phoneSnap, emailSnap] = await Promise.all([getDocs(qPhone), getDocs(qEmail)]);
-        const matchedDoc = !phoneSnap.empty ? phoneSnap.docs[0] : (!emailSnap.empty ? emailSnap.docs[0] : null);
+        const queries = [getDocs(qPhone), getDocs(qEmail)];
+        if (qPhoneNorm) queries.splice(1, 0, getDocs(qPhoneNorm));
+        
+        const results = await Promise.all(queries);
+        const phoneSnap = results[0];
+        const phoneNormSnap = qPhoneNorm ? results[1] : null;
+        const emailSnap = qPhoneNorm ? results[2] : results[1];
+        
+        const matchedDoc = !phoneSnap.empty ? phoneSnap.docs[0] : 
+                           (phoneNormSnap && !phoneNormSnap.empty ? phoneNormSnap.docs[0] : 
+                           (!emailSnap.empty ? emailSnap.docs[0] : null));
 
         if (matchedDoc) {
           const uData = matchedDoc.data();
@@ -216,7 +245,11 @@ export const AuthProvider = ({ children }) => {
     // Check Local Storage registered students fallback
     try {
       const localUsers = JSON.parse(localStorage.getItem('shreeji_registered_students') || '[]');
-      const matched = localUsers.find(u => u.phone === cleanInput || (u.email && u.email.toLowerCase() === cleanInput.toLowerCase()));
+      const matched = localUsers.find(u => 
+        u.phone === cleanInput || 
+        u.phone === normalizedPhone ||
+        (u.email && u.email.toLowerCase() === cleanInput.toLowerCase())
+      );
       if (matched) {
         if (matched.password && matched.password !== cleanPass) {
           setLoading(false);
@@ -239,8 +272,9 @@ export const AuthProvider = ({ children }) => {
     if (auth) {
       try {
         let emailToAuth = cleanInput;
-        if (/^\d{10}$/.test(cleanInput)) {
-          emailToAuth = `${cleanInput}@student.shreejilibrary.com`;
+        const normalizedPhoneForAuth = normalizePhone(cleanInput);
+        if (/^\d{10}$/.test(normalizedPhoneForAuth)) {
+          emailToAuth = `${normalizedPhoneForAuth}@student.shreejilibrary.com`;
         }
 
         const userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
@@ -277,9 +311,15 @@ export const AuthProvider = ({ children }) => {
   const signup = async ({ name, email, phone, password, role = 'student', seatNumber = null, plan = null }) => {
     setLoading(true);
 
-    const cleanPhone = phone?.trim();
+    const cleanPhone = normalizePhone(phone?.trim());
     const cleanEmail = email?.trim();
     const cleanPass = password?.trim() || 'shreeji123';
+
+    // Validate phone is 10 digits
+    if (cleanPhone && !/^\d{10}$/.test(cleanPhone)) {
+      setLoading(false);
+      throw new Error("Please enter a valid 10-digit mobile number.");
+    }
 
     // 1. Enforce Phone & Email Uniqueness
     await checkUniquePhoneAndEmail(cleanPhone, cleanEmail);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock, RefreshCw, CheckCircle, Clock, Plus, Trash2, Sparkles, UserCheck, Pencil, Save } from 'lucide-react';
+import { X, Lock, RefreshCw, CheckCircle, Clock, Plus, Trash2, Sparkles, UserCheck, Pencil, Save, Loader2, AlertCircle } from 'lucide-react';
 import { usePlans } from '../context/PlansContext';
 
 export default function AdminModal({ isOpen, onClose }) {
@@ -10,9 +10,11 @@ export default function AdminModal({ isOpen, onClose }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('All');
   const [loading, setLoading] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [savingBookingId, setSavingBookingId] = useState(null);
 
   // Dynamic Plans from context
-  const { plans, addBenefitPoint, removeBenefitPoint, editBenefitPoint, updatePlan, resetToDefaultPlans } = usePlans();
+  const { plans, addBenefitPoint, removeBenefitPoint, editBenefitPoint, updatePlan, resetToDefaultPlans, syncing } = usePlans();
 
   // New point form state
   const [newPointPlanId, setNewPointPlanId] = useState('half-day');
@@ -25,27 +27,41 @@ export default function AdminModal({ isOpen, onClose }) {
   // Edit-in-place state: { planId_idx: { en, gu } }
   const [editState, setEditState] = useState({});
 
-  const handleInlineAdd = (planId) => {
+  const handleInlineAdd = async (planId) => {
     const val = inlineAdd[planId];
     if (!val || !val.en.trim()) return;
-    addBenefitPoint(planId, val.en, val.gu || '');
-    setInlineAdd(prev => ({ ...prev, [planId]: { en: '', gu: '' } }));
-    setSuccessNotice('Benefit point added to plan!');
-    setTimeout(() => setSuccessNotice(''), 3000);
+    setSavingPlan(true);
+    try {
+      await addBenefitPoint(planId, val.en, val.gu || '');
+      setInlineAdd(prev => ({ ...prev, [planId]: { en: '', gu: '' } }));
+      setSuccessNotice('Benefit point added to plan & synced to CRM!');
+    } catch (e) {
+      setSuccessNotice('Error saving benefit point');
+    } finally {
+      setSavingPlan(false);
+      setTimeout(() => setSuccessNotice(''), 3000);
+    }
   };
 
   const startEdit = (planId, idx, en, gu) => {
     setEditState(prev => ({ ...prev, [`${planId}_${idx}`]: { en, gu } }));
   };
 
-  const saveEdit = (planId, idx) => {
+  const saveEdit = async (planId, idx) => {
     const key = `${planId}_${idx}`;
     const val = editState[key];
     if (!val || !val.en.trim()) return;
-    editBenefitPoint(planId, idx, val.en, val.gu || '');
-    setEditState(prev => { const n = {...prev}; delete n[key]; return n; });
-    setSuccessNotice('Benefit point updated!');
-    setTimeout(() => setSuccessNotice(''), 3000);
+    setSavingPlan(true);
+    try {
+      await editBenefitPoint(planId, idx, val.en, val.gu || '');
+      setEditState(prev => { const n = {...prev}; delete n[key]; return n; });
+      setSuccessNotice('Benefit point updated & synced to CRM!');
+    } catch (e) {
+      setSuccessNotice('Error updating benefit point');
+    } finally {
+      setSavingPlan(false);
+      setTimeout(() => setSuccessNotice(''), 3000);
+    }
   };
 
   const handleLogin = async (e) => {
@@ -97,27 +113,39 @@ export default function AdminModal({ isOpen, onClose }) {
   };
 
   const handleStatusChange = async (id, newStatus) => {
+    setSavingBookingId(id);
     try {
       await fetch(`/api/bookings/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to update booking status:", e);
+    } finally {
+      setSavingBookingId(null);
+    }
 
     setBookings(prev =>
       prev.map(b => (b.id === id ? { ...b, status: newStatus } : b))
     );
   };
 
-  const handleAddPoint = (e) => {
+  const handleAddPoint = async (e) => {
     e.preventDefault();
     if (!newPointEn.trim()) return;
-    addBenefitPoint(newPointPlanId, newPointEn, newPointGu);
-    setNewPointEn('');
-    setNewPointGu('');
-    setSuccessNotice('New benefit point added successfully to plan!');
-    setTimeout(() => setSuccessNotice(''), 3000);
+    setSavingPlan(true);
+    try {
+      await addBenefitPoint(newPointPlanId, newPointEn, newPointGu);
+      setNewPointEn('');
+      setNewPointGu('');
+      setSuccessNotice('New benefit point added successfully to plan & synced to CRM!');
+    } catch (e) {
+      setSuccessNotice('Error saving benefit point');
+    } finally {
+      setSavingPlan(false);
+      setTimeout(() => setSuccessNotice(''), 3000);
+    }
   };
 
   if (!isOpen) return null;
@@ -217,10 +245,22 @@ export default function AdminModal({ isOpen, onClose }) {
 
               {activeTab === 'plans' && (
                 <button
-                  onClick={resetToDefaultPlans}
-                  className="text-xs text-[#983132] hover:underline font-semibold"
+                  onClick={async () => {
+                    setSavingPlan(true);
+                    try {
+                      await resetToDefaultPlans();
+                      setSuccessNotice('Plans reset to defaults & synced to CRM!');
+                    } catch (e) {
+                      setSuccessNotice('Error resetting plans');
+                    } finally {
+                      setSavingPlan(false);
+                      setTimeout(() => setSuccessNotice(''), 3000);
+                    }
+                  }}
+                  disabled={savingPlan || syncing}
+                  className="text-xs text-[#983132] hover:underline font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Reset Plans to Default
+                  {syncing ? 'Syncing...' : savingPlan ? 'Resetting...' : 'Reset Plans to Default'}
                 </button>
               )}
             </div>
@@ -229,6 +269,14 @@ export default function AdminModal({ isOpen, onClose }) {
             {activeTab === 'plans' && (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 
+                {/* Syncing indicator */}
+                {(syncing || savingPlan) && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                    <span>{syncing ? 'Syncing plans with CRM...' : 'Saving changes to CRM...'}</span>
+                  </div>
+                )}
+
                 {successNotice && (
                   <div className="p-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -250,7 +298,8 @@ export default function AdminModal({ isOpen, onClose }) {
                         <select
                           value={newPointPlanId}
                           onChange={(e) => setNewPointPlanId(e.target.value)}
-                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs font-semibold text-[#201E1F]"
+                          disabled={savingPlan || syncing}
+                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs font-semibold text-[#201E1F] disabled:opacity-50"
                         >
                           <option value="half-day">Half Day Plan (₹700)</option>
                           <option value="full-day">Full Day Plan (₹1000)</option>
@@ -263,8 +312,9 @@ export default function AdminModal({ isOpen, onClose }) {
                           type="text"
                           value={newPointEn}
                           onChange={(e) => setNewPointEn(e.target.value)}
+                          disabled={savingPlan || syncing}
                           placeholder="e.g. Free High-speed Scanner Access"
-                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs text-[#201E1F]"
+                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs text-[#201E1F] disabled:opacity-50"
                           required
                         />
                       </div>
@@ -275,8 +325,9 @@ export default function AdminModal({ isOpen, onClose }) {
                           type="text"
                           value={newPointGu}
                           onChange={(e) => setNewPointGu(e.target.value)}
+                          disabled={savingPlan || syncing}
                           placeholder="દા.ત. ફ્રી સ્કેનર અને પ્રિન્ટિંગ સપોર્ટ"
-                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs text-[#201E1F]"
+                          className="w-full p-2.5 rounded-xl bg-white border border-[#F5E4E4] text-xs text-[#201E1F] disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -284,10 +335,20 @@ export default function AdminModal({ isOpen, onClose }) {
                     <div className="flex justify-end pt-1">
                       <button
                         type="submit"
-                        className="bg-[#EB6A30] hover:bg-[#d5571e] text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-colors flex items-center gap-1.5 shadow-sm"
+                        disabled={savingPlan || syncing || !newPointEn.trim()}
+                        className="bg-[#EB6A30] hover:bg-[#d5571e] text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Benefit Point to Website</span>
+                        {savingPlan || syncing ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Benefit Point to Website & CRM</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -317,7 +378,8 @@ export default function AdminModal({ isOpen, onClose }) {
                             type="number"
                             value={plan.price}
                             onChange={(e) => updatePlan(plan.id, { price: e.target.value })}
-                            className="w-20 p-1.5 rounded-lg border border-[#F5E4E4] text-sm font-extrabold text-[#201E1F] text-center focus:outline-none focus:ring-2 focus:ring-[#EB6A30]"
+                            disabled={savingPlan || syncing}
+                            className="w-20 p-1.5 rounded-lg border border-[#F5E4E4] text-sm font-extrabold text-[#201E1F] text-center focus:outline-none focus:ring-2 focus:ring-[#EB6A30] disabled:opacity-50"
                           />
                           <span className="text-[10px] text-[#201E1F]/50">/mo</span>
                         </div>
@@ -342,25 +404,30 @@ export default function AdminModal({ isOpen, onClose }) {
                                     autoFocus
                                     value={editState[editKey].en}
                                     onChange={e => setEditState(prev => ({ ...prev, [editKey]: { ...prev[editKey], en: e.target.value } }))}
-                                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#EB6A30] text-xs font-semibold text-[#201E1F] focus:outline-none"
+                                    disabled={savingPlan || syncing}
+                                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#EB6A30] text-xs font-semibold text-[#201E1F] focus:outline-none disabled:opacity-50"
                                     placeholder="Benefit in English"
                                   />
                                   <input
                                     value={editState[editKey].gu}
                                     onChange={e => setEditState(prev => ({ ...prev, [editKey]: { ...prev[editKey], gu: e.target.value } }))}
-                                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#F5E4E4] text-[11px] text-[#201E1F]/70 focus:outline-none"
+                                    disabled={savingPlan || syncing}
+                                    className="w-full px-2.5 py-1.5 rounded-lg border border-[#F5E4E4] text-[11px] text-[#201E1F]/70 focus:outline-none disabled:opacity-50"
                                     placeholder="ગુજરાતીમાં (વૈકલ્પિક)"
                                   />
                                   <div className="flex gap-1.5 pt-0.5">
                                     <button
                                       onClick={() => saveEdit(plan.id, idx)}
-                                      className="flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-full hover:bg-emerald-700"
+                                      disabled={savingPlan || syncing}
+                                      className="flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-full hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
-                                      <Save className="w-3 h-3" /> Save
+                                      {savingPlan || syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                      <span>{savingPlan || syncing ? 'Saving...' : 'Save'}</span>
                                     </button>
                                     <button
                                       onClick={() => setEditState(prev => { const n={...prev}; delete n[editKey]; return n; })}
-                                      className="text-[11px] text-[#201E1F]/50 hover:text-[#201E1F] px-2 py-1 rounded-full"
+                                      disabled={savingPlan || syncing}
+                                      className="text-[11px] text-[#201E1F]/50 hover:text-[#201E1F] px-2 py-1 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
                                     >
                                       Cancel
                                     </button>
@@ -378,14 +445,16 @@ export default function AdminModal({ isOpen, onClose }) {
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => startEdit(plan.id, idx, benefit, plan.benefitsGu?.[idx] || '')}
-                                      className="text-[#EB6A30] hover:text-[#d5571e] p-1 rounded-md"
+                                      disabled={savingPlan || syncing}
+                                      className="text-[#EB6A30] hover:text-[#d5571e] p-1 rounded-md disabled:opacity-30 disabled:cursor-not-allowed"
                                       title="Edit benefit"
                                     >
                                       <Pencil className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                       onClick={() => removeBenefitPoint(plan.id, idx)}
-                                      className="text-red-500 hover:text-red-700 p-1 rounded-md"
+                                      disabled={savingPlan || syncing}
+                                      className="text-red-500 hover:text-red-700 p-1 rounded-md disabled:opacity-30 disabled:cursor-not-allowed"
                                       title="Remove benefit"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -405,24 +474,35 @@ export default function AdminModal({ isOpen, onClose }) {
                             value={inlineAdd[plan.id]?.en || ''}
                             onChange={e => setInlineAdd(prev => ({ ...prev, [plan.id]: { ...prev[plan.id], en: e.target.value } }))}
                             onKeyDown={e => e.key === 'Enter' && handleInlineAdd(plan.id)}
+                            disabled={savingPlan || syncing}
                             placeholder="e.g. Priority booking support"
-                            className="w-full px-3 py-2 rounded-lg border border-[#F5E4E4] bg-white text-xs text-[#201E1F] focus:outline-none focus:ring-2 focus:ring-[#EB6A30]"
+                            className="w-full px-3 py-2 rounded-lg border border-[#F5E4E4] bg-white text-xs text-[#201E1F] focus:outline-none focus:ring-2 focus:ring-[#EB6A30] disabled:opacity-50"
                           />
                           <input
                             type="text"
                             value={inlineAdd[plan.id]?.gu || ''}
                             onChange={e => setInlineAdd(prev => ({ ...prev, [plan.id]: { ...prev[plan.id], gu: e.target.value } }))}
                             onKeyDown={e => e.key === 'Enter' && handleInlineAdd(plan.id)}
+                            disabled={savingPlan || syncing}
                             placeholder="ગુજરાતીમાં ફાયદો (વૈકલ્પિક)"
-                            className="w-full px-3 py-2 rounded-lg border border-[#F5E4E4] bg-white text-[11px] text-[#201E1F]/70 focus:outline-none"
+                            className="w-full px-3 py-2 rounded-lg border border-[#F5E4E4] bg-white text-[11px] text-[#201E1F]/70 focus:outline-none disabled:opacity-50"
                           />
                           <button
                             onClick={() => handleInlineAdd(plan.id)}
-                            disabled={!inlineAdd[plan.id]?.en?.trim()}
+                            disabled={!inlineAdd[plan.id]?.en?.trim() || savingPlan || syncing}
                             className="w-full py-2 rounded-full bg-[#EB6A30] hover:bg-[#d5571e] disabled:opacity-40 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            Add Benefit Point
+                            {savingPlan || syncing ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Benefit Point</span>
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>
@@ -454,9 +534,11 @@ export default function AdminModal({ isOpen, onClose }) {
 
                   <button
                     onClick={fetchBookings}
-                    className="text-xs text-[#983132] hover:underline flex items-center gap-1 font-semibold"
+                    disabled={loading}
+                    className="text-xs text-[#983132] hover:underline flex items-center gap-1 font-semibold disabled:opacity-50"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    {loading ? 'Loading...' : 'Refresh'}
                   </button>
                 </div>
 
@@ -481,15 +563,17 @@ export default function AdminModal({ isOpen, onClose }) {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleStatusChange(b.id, 'Confirmed')}
-                          className="bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-emerald-700"
+                          disabled={savingBookingId === b.id}
+                          className="bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Confirm Seat
+                          {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Confirm Seat'}
                         </button>
                         <button
                           onClick={() => handleStatusChange(b.id, 'Pending')}
-                          className="bg-gray-200 text-[#201E1F] text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-300"
+                          disabled={savingBookingId === b.id}
+                          className="bg-gray-200 text-[#201E1F] text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Mark Pending
+                          {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Mark Pending'}
                         </button>
                       </div>
                     </div>

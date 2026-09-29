@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { db, collection, getDocs, setDoc, doc } from '../firebase';
+import { serverTimestamp } from 'firebase/firestore';
 
 const defaultPlans = [
   {
@@ -74,17 +76,65 @@ export const PlansProvider = ({ children }) => {
     return defaultPlans;
   });
 
-  const savePlans = (newPlans) => {
+  const [syncing, setSyncing] = useState(false);
+
+  // Load plans from Firebase on init
+  useEffect(() => {
+    const loadPlansFromFirestore = async () => {
+      if (!db) return;
+      try {
+        setSyncing(true);
+        const snapshot = await getDocs(collection(db, 'subscription_plans'));
+        if (!snapshot.empty) {
+          const firestorePlans = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Merge with localStorage, preferring Firestore if newer
+          const localSaved = localStorage.getItem('shreeji_subscription_plans');
+          const localPlans = localSaved ? JSON.parse(localSaved) : defaultPlans;
+          
+          // Use Firestore as source of truth if it has data
+          const mergedPlans = firestorePlans.length > 0 ? firestorePlans : localPlans;
+          setPlans(mergedPlans);
+          localStorage.setItem('shreeji_subscription_plans', JSON.stringify(mergedPlans));
+        }
+      } catch (e) {
+        console.warn("Could not load plans from Firestore:", e);
+      } finally {
+        setSyncing(false);
+      }
+    };
+    loadPlansFromFirestore();
+  }, []);
+
+  // Save to both localStorage and Firestore
+  const savePlans = async (newPlans) => {
     setPlans(newPlans);
     try {
       localStorage.setItem('shreeji_subscription_plans', JSON.stringify(newPlans));
     } catch (e) {
       console.error(e);
     }
+    
+    // Also persist to Firebase for CRM sync
+    if (db) {
+      try {
+        setSyncing(true);
+        for (const plan of newPlans) {
+          const { id, ...planData } = plan;
+          await setDoc(doc(db, 'subscription_plans', id), {
+            ...planData,
+            updatedAt: serverTimestamp()
+          });
+        }
+      } catch (e) {
+        console.warn("Firestore plans sync warning:", e);
+      } finally {
+        setSyncing(false);
+      }
+    }
   };
 
   // 1. Add a new benefit point to a specific plan
-  const addBenefitPoint = (planId, textEn, textGu = '') => {
+  const addBenefitPoint = async (planId, textEn, textGu = '') => {
     if (!textEn.trim()) return;
     const updated = plans.map(p => {
       if (p.id === planId) {
@@ -96,11 +146,11 @@ export const PlansProvider = ({ children }) => {
       }
       return p;
     });
-    savePlans(updated);
+    await savePlans(updated);
   };
 
   // 2. Remove a benefit point by index
-  const removeBenefitPoint = (planId, index) => {
+  const removeBenefitPoint = async (planId, index) => {
     const updated = plans.map(p => {
       if (p.id === planId) {
         const newEn = p.benefitsEn.filter((_, idx) => idx !== index);
@@ -113,11 +163,11 @@ export const PlansProvider = ({ children }) => {
       }
       return p;
     });
-    savePlans(updated);
+    await savePlans(updated);
   };
 
   // 3. Edit an existing benefit point
-  const editBenefitPoint = (planId, index, newTextEn, newTextGu = '') => {
+  const editBenefitPoint = async (planId, index, newTextEn, newTextGu = '') => {
     const updated = plans.map(p => {
       if (p.id === planId) {
         const newEn = [...p.benefitsEn];
@@ -132,23 +182,23 @@ export const PlansProvider = ({ children }) => {
       }
       return p;
     });
-    savePlans(updated);
+    await savePlans(updated);
   };
 
   // 4. Update plan details (Price, Taglines, Featured)
-  const updatePlan = (planId, updates) => {
+  const updatePlan = async (planId, updates) => {
     const updated = plans.map(p => {
       if (p.id === planId) {
         return { ...p, ...updates };
       }
       return p;
     });
-    savePlans(updated);
+    await savePlans(updated);
   };
 
   // 5. Reset to default initial plans
-  const resetToDefaultPlans = () => {
-    savePlans(defaultPlans);
+  const resetToDefaultPlans = async () => {
+    await savePlans(defaultPlans);
   };
 
   return (
@@ -158,7 +208,8 @@ export const PlansProvider = ({ children }) => {
       removeBenefitPoint,
       editBenefitPoint,
       updatePlan,
-      resetToDefaultPlans
+      resetToDefaultPlans,
+      syncing
     }}>
       {children}
     </PlansContext.Provider>

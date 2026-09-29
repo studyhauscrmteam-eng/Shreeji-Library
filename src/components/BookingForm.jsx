@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, UserCheck } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, UserCheck, Copy, Check } from 'lucide-react';
 import { saveBookingToFirestore } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
@@ -70,21 +70,29 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
       directConfirm: !!currentUser // true if already logged in!
     };
 
-    // 1. Save directly to Firebase Firestore Database
+    let bookingId = null;
+    let bookingRef = null;
+
+    // 1. Save directly to Firebase Firestore Database (Primary CRM)
     try {
-      await saveBookingToFirestore(submissionCopy);
+      bookingId = await saveBookingToFirestore(submissionCopy);
+      bookingRef = bookingId;
       console.log("🔥 Successfully saved booking inquiry to Firebase Firestore DB!");
     } catch (err) {
       console.warn("Firestore save error:", err);
     }
 
-    // 2. Also POST to backend Express API
+    // 2. Also POST to backend Express API (for local dev / backup)
     try {
-      await fetch('/api/bookings', {
+      const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submissionCopy)
       });
+      const data = await res.json();
+      if (data.booking?.id) {
+        bookingRef = data.booking.id;
+      }
     } catch (err) {
       console.warn("Backend API POST notice:", err);
     }
@@ -93,21 +101,19 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
       type: 'success',
       text: currentUser 
         ? (isGu ? 'તમારી સીટ સફળતાપૂર્વક કન્ફર્મ થઈ ગઈ છે!' : 'Your seat has been successfully confirmed!')
-        : t('booking.successDesc')
+        : (isGu ? 'તમારી બુકિંગ સફળતાપૂર્વક સબમિટ થઈ ગઈ છે! અમારી ટીમ ઝડપে સંપર્ક કરશે.' : 'Booking submitted successfully! Our team will contact you shortly.')
     });
 
     setLoading(false);
 
-    // 3. Redirect user to the CRM's Student Registration page with data pre-filled
+    // 3. Show booking reference and option to copy
     setTimeout(() => {
-      const queryParams = new URLSearchParams({
-        name: submissionCopy.name || "",
-        phone: submissionCopy.phone || "",
-        email: submissionCopy.email || "",
-        plan: submissionCopy.plan || "",
-        message: submissionCopy.message || ""
-      }).toString();
-      window.location.href = `http://192.168.48.192:8080/student-register.html?${queryParams}`;
+      setToast({
+        type: 'success',
+        text: isGu 
+          ? `બુકિંગ સફળ! રેફરન્સ: ${bookingRef || 'FIREBASE-' + Date.now()}. અમારી ટીમ ઝડપે તમને સંપર્ક કરશે.`
+          : `Booking confirmed! Reference: ${bookingRef || 'FIREBASE-' + Date.now()}. Our team will contact you shortly.`
+      });
     }, 500);
   };
 
@@ -158,12 +164,31 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className={`mb-8 p-4 rounded-2xl flex items-center gap-3 text-sm font-semibold transition-all ${
+            className={`mb-8 p-4 rounded-2xl flex items-start gap-3 text-sm font-semibold transition-all ${
               toast.type === 'success' ? 'bg-[#983132] text-white border border-[#EB6A30]' : 'bg-red-900/80 text-white'
             }`}
           >
-            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-[#EB6A30] shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-            <span>{toast.text}</span>
+            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-[#EB6A30] shrink-0 mt-0.5" /> : <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />}
+            <div className="flex-1">
+              <span>{toast.text}</span>
+              {toast.bookingRef && (
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/20">
+                  <span className="text-xs font-mono bg-white/20 px-2.5 py-1 rounded flex-1 break-all">{toast.bookingRef}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(toast.bookingRef);
+                      setToast(prev => prev ? {...prev, copied: true} : null);
+                    }}
+                    className="px-3 py-1.5 text-xs bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center gap-1"
+                    title={isGu ? 'રેફરન્સ કૉપી કરો' : 'Copy Reference'}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{toast.copied ? (isGu ? 'કૉપી થયું' : 'Copied') : (isGu ? 'કૉપી' : 'Copy')}</span>
+                    {toast.copied && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                  </button>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 

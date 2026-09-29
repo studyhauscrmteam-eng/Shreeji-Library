@@ -10,6 +10,9 @@ lerna-debug.log*
 # Diagnostic data
 server/bookings_store.json
 
+# Firebase Service Account (contains private keys - NEVER commit!)
+server/serviceAccountKey.json
+
 # Dependencies
 node_modules/
 .pnpm-store/
