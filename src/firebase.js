@@ -1,21 +1,21 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  serverTimestamp 
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  serverTimestamp
 } from 'firebase/firestore';
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
@@ -49,56 +49,62 @@ try {
   console.error("Firebase initialization error:", e);
 }
 
-export const saveBookingToFirestore = async (bookingData) => {
-  if (!db) {
-    console.warn("Firestore not initialized, saving to local cache.");
-    return `LOCAL-${Date.now()}`;
-  }
-  
-  // Format the payload to match the CRM's expected admissions schema
-  const admissionPayload = {
-    name: bookingData.name || "",
-    phone: bookingData.phone || "",
-    email: bookingData.email || "",
-    planName: bookingData.plan || "",
-    planId: "website-inquiry",
-    
-    // Required CRM fields with safe placeholders
-    dob: "1900-01-01", 
-    gender: "Not Specified",
-    paymentMethod: "Pay Later",
-    termsAccepted: true,
-    
-    // Status markers for CRM
-    status: "Pending",
-    approvalStatus: "Pending",
-    isStudentSubmission: true,
-    role: "Student",
-    source: "Website",
-    
-    // Pass user's message into remarks
-    remarks: bookingData.message || "",
-    
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  };
+/**
+ * NOTE (CRM sync architecture):
+ * Public Firestore security rules on studyhaus-crm deny unauthenticated
+ * client reads/writes (permission-denied). So ALL website <-> CRM traffic
+ * must go through our backend API (`/api/*`), which uses the Firebase
+ * Admin SDK and bypasses those rules:
+ *
+ *   GET  /api/plans    -> live `membershipPlans` (CRM-managed)
+ *   POST /api/bookings -> creates a Pending `students` doc visible in CRM
+ *   GET  /api/bookings -> recent CRM `students` inquiries
+ */
 
-  const docRef = await addDoc(collection(db, "admissions"), admissionPayload);
-  return docRef.id;
+// Fetch live membership plans from the backend (single source of truth = CRM).
+export const fetchLivePlans = async () => {
+  const res = await fetch('/api/plans');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || `Plans request failed (${res.status})`);
+  }
+  return data.data || [];
 };
 
-export { 
-  app, 
-  db, 
-  auth, 
-  isFirebaseReady, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+// Submit a website inquiry through the backend so it lands in the CRM
+// `students` collection with status Pending.
+export const submitBookingViaAPI = async (bookingData) => {
+  const res = await fetch('/api/bookings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bookingData),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || `Booking request failed (${res.status})`);
+  }
+  return data.booking;
+};
+
+// Legacy name kept for compatibility — now routes via the backend API
+// (direct Firestore writes fail with permission-denied under locked rules).
+export const saveBookingToFirestore = async (bookingData) => {
+  const booking = await submitBookingViaAPI(bookingData);
+  return booking?.id || booking?.booking?.id || `API-${Date.now()}`;
+};
+
+export {
+  app,
+  db,
+  auth,
+  isFirebaseReady,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
   updateProfile,
-  doc, 
-  setDoc, 
+  doc,
+  setDoc,
   getDoc,
   getDocs,
   collection,

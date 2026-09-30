@@ -195,6 +195,38 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: adminUser, role: 'admin' };
     }
 
+    // Primary path: backend API -> CRM `students` (works with locked Firestore rules)
+    try {
+      const res = await fetch(`/api/students/lookup?identifier=${encodeURIComponent(cleanInput)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const uData = data.data;
+        if (uData) {
+          if (uData.password && uData.password !== cleanPass) {
+            setLoading(false);
+            throw new Error("Incorrect password. Please try again.");
+          }
+          const loggedInUser = {
+            uid: uData.id,
+            ...uData,
+            displayName: uData.name || uData.displayName || 'Student',
+            hasActiveBooking: !!(uData.seatNumber || uData.seatAssigned),
+            role: uData.role || 'student'
+          };
+          setCurrentUser(loggedInUser);
+          localStorage.setItem('shreeji_auth_user', JSON.stringify(loggedInUser));
+          setLoading(false);
+          return { success: true, user: loggedInUser, role: loggedInUser.role };
+        }
+      } else if (res.status === 401 || res.status === 403) {
+        throw new Error("Incorrect password. Please try again.");
+      }
+      // 404 -> fall through to legacy paths
+    } catch (err) {
+      if (err.message && err.message.includes("password")) throw err;
+      console.warn("Backend lookup notice:", err.message);
+    }
+
     // Normalize phone for lookup
     const normalizedPhone = normalizePhone(cleanInput);
     
@@ -326,12 +358,35 @@ export const AuthProvider = ({ children }) => {
 
     const generatedId = `SJ-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
+    // Primary path: create the Pending student in the CRM via backend API.
+    // (Direct Firestore writes fail with permission-denied under locked rules.)
+    let crmId = null;
+    try {
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), phone: cleanPhone, email: cleanEmail || '', plan, role })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.data) {
+        crmId = data.data.id;
+      } else if (res.status === 409) {
+        setLoading(false);
+        throw new Error(data.message || "An account with this Mobile Number already exists. Please login instead.");
+      } else if (res.status !== 503) {
+        console.warn("Backend signup notice:", data.message);
+      }
+    } catch (e) {
+      if (e.message && e.message.includes("already exists")) throw e;
+      console.warn("Backend signup fallback notice:", e.message);
+    }
+
     let emailToUse = cleanEmail;
     if (!emailToUse && cleanPhone) {
       emailToUse = `${cleanPhone}@student.shreejilibrary.com`;
     }
 
-    let createdUid = `user-${Date.now()}`;
+    let createdUid = crmId || `user-${Date.now()}`;
 
     // 2. Attempt Firebase Authentication
     if (auth) {
@@ -352,6 +407,7 @@ export const AuthProvider = ({ children }) => {
     // 3. Save User Profile (Notice: seatNumber is only assigned when a seat is actually booked!)
     const profileData = {
       uid: createdUid,
+      id: crmId || createdUid,
       name: name.trim(),
       email: cleanEmail || '',
       phone: cleanPhone,
@@ -361,6 +417,9 @@ export const AuthProvider = ({ children }) => {
       plan: plan || null,
       studentId: generatedId,
       role: role,
+      status: 'Pending',
+      approvalStatus: 'Pending',
+      source: 'Website',
       createdAt: new Date().toISOString()
     };
 

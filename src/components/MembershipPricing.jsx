@@ -1,25 +1,27 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Sparkles, ShieldCheck, ArrowRight, Settings } from 'lucide-react';
+import { Check, Sparkles, ShieldCheck, ArrowRight, Settings, Loader2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
 
 export default function MembershipPricing({ onSelectPlan, onOpenAdmin }) {
   const { language, t } = useLanguage();
   const isGu = language === 'gu';
-  const { plans } = usePlans();
+  const { plans, live, syncing, syncError, refreshPlans, lastSyncedAt } = usePlans();
+
+  const gridCols = plans.length <= 2 ? 'md:grid-cols-2' : plans.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3';
 
   return (
     <section id="plans" className="py-24 bg-[#FFF8F5] text-[#201E1F]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.7 }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-10"
         >
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="h-[1px] w-8 bg-[#983132]" />
@@ -31,14 +33,42 @@ export default function MembershipPricing({ onSelectPlan, onOpenAdmin }) {
             {t('pricing.headingStart')}
             <span className="font-serif italic text-[#EB6A30]">{t('pricing.headingHighlight')}</span>
           </h2>
-          
+
           <p className="mt-4 text-base sm:text-lg text-[#201E1F]/70 font-normal">
             {t('pricing.subtitle')}
           </p>
+
+          {/* Live CRM sync status */}
+          <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-semibold">
+            {syncing ? (
+              <span className="inline-flex items-center gap-1.5 text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {isGu ? 'CRMમાંથી લાઇવ પ્લાન લોડ થઈ રહ્યા છે…' : 'Loading live plans from CRM…'}
+              </span>
+            ) : live ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {isGu
+                  ? `લાઇવ CRM પ્લાન${lastSyncedAt ? ' • હમણાં જ સિંક થયા' : ''}`
+                  : `Live CRM plans${lastSyncedAt ? ' • just synced' : ''}`}
+                <button onClick={refreshPlans} className="ml-1 underline hover:no-underline flex items-center gap-1" title="Refresh">
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                {isGu ? 'બેકએન્ડ ઉપલબ્ધ નથી — કેશ બતાવાય છે' : 'Backend unreachable — showing cached plans'}
+                {syncError ? ` (${syncError.slice(0, 60)})` : ''}
+                <button onClick={refreshPlans} className="ml-1 underline hover:no-underline flex items-center gap-1" title="Retry">
+                  <RefreshCw className="w-3 h-3" /> Retry
+                </button>
+              </span>
+            )}
+          </div>
         </motion.div>
 
         {/* Dynamic Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+        <div className={`grid grid-cols-1 ${gridCols} gap-8 items-stretch`}>
           {plans.map((plan, index) => {
             const planName = isGu ? plan.nameGu : plan.nameEn;
             const tagline = isGu ? plan.taglineGu : plan.taglineEn;
@@ -126,7 +156,7 @@ export default function MembershipPricing({ onSelectPlan, onOpenAdmin }) {
               className="text-xs text-[#983132] hover:underline flex items-center gap-1 font-semibold"
             >
               <Settings className="w-3.5 h-3.5" />
-              <span>{isGu ? 'પ્લાનના લાભો બદલો (સોફ્ટવેર)' : 'Manage Plan Benefits & Points'}</span>
+              <span>{isGu ? 'પ્લાન CRMમાં મેનેજ થાય છે' : 'Plans are managed in CRM'}</span>
             </button>
           )}
         </div>

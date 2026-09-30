@@ -13,13 +13,25 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-async function checkAdmissions() {
-  const querySnapshot = await getDocs(collection(db, "admissions"));
-  console.log(`Found ${querySnapshot.size} admissions.`);
-  querySnapshot.forEach((doc) => {
-    console.log(doc.id, " => ", doc.data());
-  });
+async function checkCrm() {
+  // NOTE: public client reads are denied by Firestore security rules
+  // (permission-denied is EXPECTED). The website must use GET /api/plans
+  // and POST /api/bookings instead — see server/index.js.
+  for (const name of ["membershipPlans", "students"]) {
+    try {
+      const snap = await getDocs(collection(db, name));
+      console.log(`${name}: ${snap.size} docs (client-readable)`);
+    } catch (e) {
+      console.log(`${name}: client read denied (${e.code}) — use backend API instead.`);
+    }
+  }
+  try {
+    const res = await fetch("http://localhost:5000/api/health");
+    console.log("backend /api/health:", await res.text());
+  } catch (e) {
+    console.log("backend not running on :5000 — start with: node server/index.js");
+  }
   process.exit(0);
 }
 
-checkAdmissions().catch(console.error);
+checkCrm().catch(console.error);

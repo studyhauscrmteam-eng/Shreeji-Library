@@ -34,7 +34,7 @@ export default function AdminModal({ isOpen, onClose }) {
     try {
       await addBenefitPoint(planId, val.en, val.gu || '');
       setInlineAdd(prev => ({ ...prev, [planId]: { en: '', gu: '' } }));
-      setSuccessNotice('Benefit point added to plan & synced to CRM!');
+      setSuccessNotice('Benefit point added (local preview — CRM is source of truth)');
     } catch (e) {
       setSuccessNotice('Error saving benefit point');
     } finally {
@@ -55,7 +55,7 @@ export default function AdminModal({ isOpen, onClose }) {
     try {
       await editBenefitPoint(planId, idx, val.en, val.gu || '');
       setEditState(prev => { const n = {...prev}; delete n[key]; return n; });
-      setSuccessNotice('Benefit point updated & synced to CRM!');
+      setSuccessNotice('Benefit point updated (local preview — CRM is source of truth)');
     } catch (e) {
       setSuccessNotice('Error updating benefit point');
     } finally {
@@ -82,31 +82,12 @@ export default function AdminModal({ isOpen, onClose }) {
       const data = await res.json();
       if (data.success) {
         setBookings(data.data);
+      } else {
+        setBookings([]);
       }
     } catch (e) {
-      // Fallback demo bookings
-      setBookings([
-        {
-          id: 'BK-101',
-          name: 'Rohan Sharma',
-          phone: '9876543210',
-          exam: 'GPSC Class-1',
-          plan: 'Full Day (17 Hrs)',
-          shift: 'Full Day (06:00 AM – 11:00 PM)',
-          status: 'Confirmed',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'BK-102',
-          name: 'Priya Patel',
-          phone: '9123456789',
-          exam: 'CA Inter',
-          plan: 'Half Day — Morning',
-          shift: 'Morning Shift (06:00 AM – 02:00 PM)',
-          status: 'Pending',
-          createdAt: new Date().toISOString()
-        }
-      ]);
+      console.error("Failed to load bookings from backend:", e);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -139,7 +120,7 @@ export default function AdminModal({ isOpen, onClose }) {
       await addBenefitPoint(newPointPlanId, newPointEn, newPointGu);
       setNewPointEn('');
       setNewPointGu('');
-      setSuccessNotice('New benefit point added successfully to plan & synced to CRM!');
+      setSuccessNotice('New benefit point added (local preview — CRM is source of truth)');
     } catch (e) {
       setSuccessNotice('Error saving benefit point');
     } finally {
@@ -150,9 +131,16 @@ export default function AdminModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const filteredBookings = filter === 'All' 
-    ? bookings 
-    : bookings.filter(b => b.status === filter);
+  const statusOf = (b) => {
+    const s = b.status || 'Pending';
+    // Normalize legacy "Confirmed" to CRM "Active"
+    if (s === 'Confirmed' || s === 'Approved') return 'Active';
+    return s;
+  };
+
+  const filteredBookings = filter === 'All'
+    ? bookings
+    : bookings.filter(b => statusOf(b) === filter);
 
   return (
     <div className="fixed inset-0 z-[150] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 select-none">
@@ -249,7 +237,7 @@ export default function AdminModal({ isOpen, onClose }) {
                     setSavingPlan(true);
                     try {
                       await resetToDefaultPlans();
-                      setSuccessNotice('Plans reset to defaults & synced to CRM!');
+                      setSuccessNotice('Plans reloaded from CRM');
                     } catch (e) {
                       setSuccessNotice('Error resetting plans');
                     } finally {
@@ -260,7 +248,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   disabled={savingPlan || syncing}
                   className="text-xs text-[#983132] hover:underline font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {syncing ? 'Syncing...' : savingPlan ? 'Resetting...' : 'Reset Plans to Default'}
+                  {syncing ? 'Syncing...' : savingPlan ? 'Reloading...' : 'Reload plans from CRM'}
                 </button>
               )}
             </div>
@@ -268,7 +256,12 @@ export default function AdminModal({ isOpen, onClose }) {
             {/* TAB 1: SUBSCRIPTION PLANS & BENEFITS MANAGER */}
             {activeTab === 'plans' && (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                
+
+                {/* CRM source-of-truth notice */}
+                <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold">
+                  <span className="font-bold">Plans are managed in the CRM (membershipPlans).</span>
+                  <span> This website refreshes automatically from <code className="font-mono">GET /api/plans</code> every 30 seconds — any price/name change you make in the CRM appears here without redeploy. Edits below are local preview only.</span>
+                </div>
                 {/* Syncing indicator */}
                 {(syncing || savingPlan) && (
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2">
@@ -519,7 +512,7 @@ export default function AdminModal({ isOpen, onClose }) {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    {['All', 'Confirmed', 'Pending'].map((st) => (
+                    {['All', 'Active', 'Pending'].map((st) => (
                       <button
                         key={st}
                         onClick={() => setFilter(st)}
@@ -543,26 +536,38 @@ export default function AdminModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="space-y-3">
+                  {filteredBookings.length === 0 && !loading && (
+                    <p className="text-xs text-[#201E1F]/60 text-center py-6">
+                      No inquiries found. New website bookings appear here live from the CRM (students with status Pending).
+                    </p>
+                  )}
                   {filteredBookings.map((b) => (
                     <div key={b.id} className="p-4 rounded-2xl bg-[#FFF8F5] border border-[#F5E4E4] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-sm text-[#201E1F]">{b.name}</h4>
                           <span className="text-xs font-mono text-[#983132]">({b.phone})</span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            b.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            statusOf(b) === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                           }`}>
-                            {b.status}
+                            {statusOf(b)}
                           </span>
+                          {b.source === 'Website' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              Website
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-[#201E1F]/70 mt-1">
-                          Course: <strong>{b.exam || 'Competitive Exam'}</strong> • Plan: <strong>{b.plan}</strong>
+                          Plan: <strong>{b.planName || b.plan || '—'}</strong>
+                          {b.seatNumber ? (<span> • Seat: <strong>{b.seatNumber}</strong></span>) : null}
+                          {b.remarks ? (<span> • <em>{b.remarks}</em></span>) : null}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleStatusChange(b.id, 'Confirmed')}
+                          onClick={() => handleStatusChange(b.id, 'Active')}
                           disabled={savingBookingId === b.id}
                           className="bg-emerald-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

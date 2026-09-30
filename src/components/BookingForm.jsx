@@ -1,27 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, UserCheck, Copy, Check } from 'lucide-react';
-import { saveBookingToFirestore } from '../firebase';
+import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, UserCheck } from 'lucide-react';
+import { submitBookingViaAPI } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
 import { useAuth } from '../context/AuthContext';
 
+const normalizePhone = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+};
+
 export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
   const { language, t } = useLanguage();
   const isGu = language === 'gu';
-  const { plans } = usePlans();
+  const { plans, live, syncing } = usePlans();
   const { currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
-    plan: 'Half Day — 6-8 hrs · ₹700/mo',
+    planId: '',
     message: ''
   });
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // Default to the first live plan once plans arrive.
+  useEffect(() => {
+    if (plans && plans.length > 0) {
+      setFormData((prev) => {
+        if (prev.planId && plans.some((p) => p.id === prev.planId)) return prev;
+        return { ...prev, planId: plans[0].id };
+      });
+    }
+  }, [plans]);
 
   // Auto-fill logged in student details if available
   useEffect(() => {
@@ -35,28 +52,39 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
     }
   }, [currentUser]);
 
+  // A plan card ("Select this Plan") passes a plan id -> preselect it + scroll target.
   useEffect(() => {
-    if (selectedPlan) {
-      const planName = selectedPlan === 'full-day' 
-        ? (isGu ? 'ફુલ ડે પ્લાન — ₹1000/માસિક' : 'Full Day Plan — ₹1000/mo')
-        : (isGu ? 'હાફ ડે પ્લાન — ₹700/માસિક' : 'Half Day Plan — ₹700/mo');
-      setFormData(prev => ({
-        ...prev,
-        plan: planName
-      }));
+    if (selectedPlan && plans && plans.length > 0) {
+      const match =
+        plans.find((p) => p.id === selectedPlan) ||
+        plans.find((p) => p.crmId === selectedPlan);
+      if (match) {
+        setFormData((prev) => ({ ...prev, planId: match.id }));
+      }
     }
-  }, [selectedPlan, isGu]);
+  }, [selectedPlan, plans]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const selectedPlanObj = plans?.find((p) => p.id === formData.planId) || plans?.[0] || null;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      setToast({ 
-        type: 'error', 
-        text: isGu ? 'કૃપા કરીને તમારું નામ અને ફોન નંબર દાખલ કરો.' : 'Please fill in your Name and Phone number.' 
+    const cleanPhone = normalizePhone(formData.phone);
+
+    if (!formData.name.trim() || !cleanPhone) {
+      setToast({
+        type: 'error',
+        text: isGu ? 'કૃપા કરીને તમારું નામ અને ફોન નંબર દાખલ કરો.' : 'Please fill in your Name and Phone number.'
+      });
+      return;
+    }
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      setToast({
+        type: 'error',
+        text: isGu ? 'કૃપા કરીને સાચો ૧૦ અંકનો મોબાઇલ નંબર દાખલ કરો.' : 'Please enter a valid 10-digit mobile number.'
       });
       return;
     }
@@ -64,67 +92,48 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
     setLoading(true);
     setToast(null);
 
-    const submissionCopy = { 
-      ...formData,
+    const submissionCopy = {
+      name: formData.name.trim(),
+      phone: cleanPhone,
+      email: (formData.email || '').trim(),
+      planId: selectedPlanObj?.crmId || selectedPlanObj?.id || formData.planId || '',
+      planName: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
+      plan: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
+      message: formData.message || '',
       userId: currentUser?.uid || null,
-      directConfirm: !!currentUser // true if already logged in!
+      directConfirm: !!currentUser
     };
 
-    let bookingId = null;
-    let bookingRef = null;
-
-    // 1. Save directly to Firebase Firestore Database (Primary CRM)
     try {
-      bookingId = await saveBookingToFirestore(submissionCopy);
-      bookingRef = bookingId;
-      console.log("🔥 Successfully saved booking inquiry to Firebase Firestore DB!");
-    } catch (err) {
-      console.warn("Firestore save error:", err);
-    }
-
-    // 2. Also POST to backend Express API (for local dev / backup)
-    try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submissionCopy)
-      });
-      const data = await res.json();
-      if (data.booking?.id) {
-        bookingRef = data.booking.id;
-      }
-    } catch (err) {
-      console.warn("Backend API POST notice:", err);
-    }
-
-    setToast({
-      type: 'success',
-      text: currentUser 
-        ? (isGu ? 'તમારી સીટ સફળતાપૂર્વક કન્ફર્મ થઈ ગઈ છે!' : 'Your seat has been successfully confirmed!')
-        : (isGu ? 'તમારી બુકિંગ સફળતાપૂર્વક સબમિટ થઈ ગઈ છે! અમારી ટીમ ઝડપে સંપર્ક કરશે.' : 'Booking submitted successfully! Our team will contact you shortly.')
-    });
-
-    setLoading(false);
-
-    // 3. Show booking reference and option to copy
-    setTimeout(() => {
+      // Single reliable path: backend API -> CRM `students` (status Pending).
+      const booking = await submitBookingViaAPI(submissionCopy);
+      const ref = booking?.id || `REQ-${Date.now()}`;
       setToast({
         type: 'success',
-        text: isGu 
-          ? `બુકિંગ સફળ! રેફરન્સ: ${bookingRef || 'FIREBASE-' + Date.now()}. અમારી ટીમ ઝડપે તમને સંપર્ક કરશે.`
-          : `Booking confirmed! Reference: ${bookingRef || 'FIREBASE-' + Date.now()}. Our team will contact you shortly.`
+        text: isGu
+          ? `બુકિંગ સફળ! રેફરન્સ: ${ref}. અમારી ટીમ ટૂંક સમયમાં સંપર્ક કરશે.${live ? '' : ' (નોટ: પ્લાન યાદી કેશમાંથી બતાવાઈ છે)'}`
+          : `Booking confirmed! Reference: ${ref}. Our team will contact you shortly.`
       });
-    }, 500);
+      setFormData((prev) => ({ ...prev, message: '' }));
+    } catch (err) {
+      console.error('Booking submit failed:', err);
+      setToast({
+        type: 'error',
+        text: err.message || (isGu ? 'બુકિંગ નિષ્ફળ ગઈ. કૃપા કરીને ફરી પ્રયાસ કરો.' : 'Booking failed. Please try again.')
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <section id="booking" className="py-24 bg-[#201E1F] text-white relative overflow-hidden">
-      
+
       {/* Background Radial Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[500px] h-[350px] sm:h-[500px] bg-[#983132]/25 blur-[120px] pointer-events-none" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -146,6 +155,26 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
           <p className="mt-4 text-base sm:text-lg text-[#F5E4E4]/80 max-w-xl mx-auto">
             {t('booking.subtitle')}
           </p>
+
+          {/* Live CRM sync indicator */}
+          <div className="mt-3 flex items-center justify-center gap-2 text-[11px] font-semibold">
+            {syncing ? (
+              <span className="inline-flex items-center gap-1.5 text-amber-300">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {isGu ? 'લાઇવ પ્લાન સિંક થઈ રહ્યા છે…' : 'Syncing live plans from CRM…'}
+              </span>
+            ) : live ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {isGu ? 'CRM સાથે લાઇવ કનેક્ટેડ — પ્લાન સીધા CRMમાંથી' : 'Live connected to CRM — plans load directly from backend'}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-amber-300">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {isGu ? 'બેકએન્ડ ઉપલબ્ધ નથી — કેશ કરેલા પ્લાન બતાવાય છે' : 'Backend unreachable — showing cached plans'}
+              </span>
+            )}
+          </div>
 
           {/* Logged in indicator banner */}
           {currentUser && (
@@ -171,23 +200,6 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
             {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-[#EB6A30] shrink-0 mt-0.5" /> : <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />}
             <div className="flex-1">
               <span>{toast.text}</span>
-              {toast.bookingRef && (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/20">
-                  <span className="text-xs font-mono bg-white/20 px-2.5 py-1 rounded flex-1 break-all">{toast.bookingRef}</span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(toast.bookingRef);
-                      setToast(prev => prev ? {...prev, copied: true} : null);
-                    }}
-                    className="px-3 py-1.5 text-xs bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center gap-1"
-                    title={isGu ? 'રેફરન્સ કૉપી કરો' : 'Copy Reference'}
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{toast.copied ? (isGu ? 'કૉપી થયું' : 'Copied') : (isGu ? 'કૉપી' : 'Copy')}</span>
-                    {toast.copied && <Check className="w-3.5 h-3.5 text-emerald-400" />}
-                  </button>
-                </div>
-              )}
             </div>
           </motion.div>
         )}
@@ -201,10 +213,10 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
           onSubmit={handleSubmit}
           className="bg-white/10 backdrop-blur-xl p-8 sm:p-12 rounded-3xl border border-white/15 shadow-2xl space-y-6"
         >
-          
+
           {/* Row 1: Name and Phone Number */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            
+
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4] mb-2">
                 {t('booking.fullName')}
@@ -231,6 +243,7 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
                 onChange={handleChange}
                 placeholder={t('booking.phonePlaceholder')}
                 required
+                maxLength={13}
                 className="w-full px-4 py-3.5 rounded-2xl bg-white/90 text-[#201E1F] placeholder-gray-500 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#EB6A30] transition-all"
               />
             </div>
@@ -239,7 +252,7 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
 
           {/* Row 2: Email Address and Preferred Plan */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            
+
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4] mb-2">
                 {isGu ? 'ઇમેઇલ એડ્રેસ' : 'EMAIL ADDRESS'}
@@ -259,28 +272,34 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
                 {t('booking.planSelect')}
               </label>
               <select
-                name="plan"
-                value={formData.plan}
+                name="planId"
+                value={formData.planId}
                 onChange={handleChange}
                 className="w-full px-4 py-3.5 rounded-2xl bg-white/90 text-[#201E1F] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#EB6A30] transition-all"
               >
                 {plans && plans.length > 0 ? (
                   plans.map((p) => (
-                    <option key={p.id} value={`${isGu ? p.nameGu : p.nameEn} — ₹${p.price}/mo`}>
+                    <option key={p.id} value={p.id}>
                       {isGu ? p.nameGu : p.nameEn} — {isGu ? p.taglineGu : p.taglineEn} · ₹{p.price}/mo
                     </option>
                   ))
                 ) : (
                   <>
-                    <option value="Half Day — 6-8 hrs · ₹700/mo">
+                    <option value="half-day">
                       {isGu ? 'હાફ ડે પ્લાન (૬-૮ કલાક) — ₹700/માસિક' : 'Half Day — 6-8 hrs · ₹700/mo'}
                     </option>
-                    <option value="Full Day — 17 hrs · ₹1000/mo">
+                    <option value="full-day">
                       {isGu ? 'ફુલ ડે પ્લાન (૧૭ કલાક) — ₹1000/માસિક' : 'Full Day — 17 hrs · ₹1000/mo'}
                     </option>
                   </>
                 )}
               </select>
+              {selectedPlanObj && (
+                <p className="mt-1.5 text-[11px] text-white/60">
+                  {isGu ? 'પસંદ કરેલ: ' : 'Selected: '}{isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn} · ₹{selectedPlanObj.price}
+                  {selectedPlanObj.duration ? ` · ${selectedPlanObj.duration}` : ''}
+                </p>
+              )}
             </div>
 
           </div>

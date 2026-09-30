@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, collection, getDocs, setDoc, doc } from '../firebase';
-import { serverTimestamp } from 'firebase/firestore';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { fetchLivePlans } from '../firebase';
 
+// Fallback shown only when the backend/CRM is unreachable.
 const defaultPlans = [
   {
     id: 'half-day',
@@ -61,156 +61,183 @@ const defaultPlans = [
   }
 ];
 
+const STANDARD_BENEFITS_EN = [
+  'Personal reserved desk with power socket',
+  'AC + High-Speed Wi-Fi + charging',
+  'Personal locker access',
+  'Purified RO drinking water',
+  'Terrace refreshment lounge access',
+  'Open all 7 days including holidays',
+];
+
+const STANDARD_BENEFITS_GU = [
+  'પાવર સોકેટ સાથે વ્યક્તિગત રિઝર્વ્ડ ડેસ્ક',
+  'AC + હાઇ-સ્પીડ Wi-Fi + ચાર્જિંગ',
+  'સુરક્ષિત લોકર સુવિધા',
+  'શુદ્ધ RO પીવાનું પાણી',
+  'ટેરેસ રિફ્રેશમેન્ટ લાઉન્જ એક્સેસ',
+  'રજાઓ સહિત અઠવાડિયાના ૭ દિવસ ખુલ્લું',
+];
+
+// Map a CRM `membershipPlans` doc to the website card shape.
+const mapCrmPlanToWebsite = (crmPlan, index, total) => {
+  const priceNum = Number(crmPlan.price) || 0;
+  const duration = crmPlan.duration || '1 Month';
+  const seatType = crmPlan.seatType || 'Fixed';
+  const name = crmPlan.planName || `Plan ${index + 1}`;
+  // Feature the most expensive plan (or the single plan) by default.
+  const featured = total === 1 ? true : index === total - 1;
+  return {
+    id: crmPlan.id,
+    crmId: crmPlan.id,
+    nameEn: name,
+    nameGu: name,
+    taglineEn: `${duration} · ${seatType} seat`,
+    taglineGu: `${duration} · ${seatType} સીટ`,
+    price: String(priceNum),
+    duration,
+    seatType,
+    crmStatus: crmPlan.status || 'Active',
+    crmNotes: crmPlan.notes || '',
+    featured,
+    badgeEn: featured ? 'Recommended' : '',
+    badgeGu: featured ? 'સૌથી વધુ પસંદગી' : '',
+    // CRM plans don't carry marketing benefit lists, so show standard inclusions.
+    benefitsEn: STANDARD_BENEFITS_EN,
+    benefitsGu: STANDARD_BENEFITS_GU,
+  };
+};
+
 const PlansContext = createContext();
 
 export const PlansProvider = ({ children }) => {
   const [plans, setPlans] = useState(() => {
     try {
-      const saved = localStorage.getItem('shreeji_subscription_plans');
+      const saved = localStorage.getItem('shreeji_live_plans_cache');
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch {}
     return defaultPlans;
   });
 
   const [syncing, setSyncing] = useState(false);
+  const [live, setLive] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [syncError, setSyncError] = useState('');
 
-  // Load plans from Firebase on init
-  useEffect(() => {
-    const loadPlansFromFirestore = async () => {
-      if (!db) return;
-      try {
-        setSyncing(true);
-        const snapshot = await getDocs(collection(db, 'subscription_plans'));
-        if (!snapshot.empty) {
-          const firestorePlans = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Merge with localStorage, preferring Firestore if newer
-          const localSaved = localStorage.getItem('shreeji_subscription_plans');
-          const localPlans = localSaved ? JSON.parse(localSaved) : defaultPlans;
-          
-          // Use Firestore as source of truth if it has data
-          const mergedPlans = firestorePlans.length > 0 ? firestorePlans : localPlans;
-          setPlans(mergedPlans);
-          localStorage.setItem('shreeji_subscription_plans', JSON.stringify(mergedPlans));
-        }
-      } catch (e) {
-        console.warn("Could not load plans from Firestore:", e);
-      } finally {
-        setSyncing(false);
+  // Single source of truth: CRM `membershipPlans` via GET /api/plans.
+  const refreshPlans = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const crmPlans = await fetchLivePlans();
+      if (Array.isArray(crmPlans) && crmPlans.length > 0) {
+        const mapped = crmPlans.map((p, i) => mapCrmPlanToWebsite(p, i, crmPlans.length));
+        setPlans(mapped);
+        setLive(true);
+        setSyncError('');
+        setLastSyncedAt(new Date().toISOString());
+        try {
+          localStorage.setItem('shreeji_live_plans_cache', JSON.stringify(mapped));
+        } catch {}
+        return mapped;
       }
-    };
-    loadPlansFromFirestore();
+      setSyncError('No active plans returned by CRM.');
+      setLive(false);
+      return null;
+    } catch (e) {
+      console.warn('Live plans sync failed, using cached fallback:', e.message);
+      setSyncError(e.message || 'Could not reach backend.');
+      setLive(false);
+      return null;
+    } finally {
+      setSyncing(false);
+    }
   }, []);
 
-  // Save to both localStorage and Firestore
-  const savePlans = async (newPlans) => {
-    setPlans(newPlans);
-    try {
-      localStorage.setItem('shreeji_subscription_plans', JSON.stringify(newPlans));
-    } catch (e) {
-      console.error(e);
-    }
-    
-    // Also persist to Firebase for CRM sync
-    if (db) {
+  // Load on mount + re-poll so CRM edits appear without redeploy.
+  useEffect(() => {
+    refreshPlans();
+    const timer = setInterval(refreshPlans, 30000);
+    const onFocus = () => refreshPlans();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [refreshPlans]);
+
+  // ---- Legacy local-edit API (kept so AdminModal doesn't crash).
+  // Plans are now managed in the CRM; these only patch local state.
+  const patchLocal = (updater) => {
+    setPlans((prev) => {
+      const next = updater(prev);
       try {
-        setSyncing(true);
-        for (const plan of newPlans) {
-          const { id, ...planData } = plan;
-          await setDoc(doc(db, 'subscription_plans', id), {
-            ...planData,
-            updatedAt: serverTimestamp()
-          });
-        }
-      } catch (e) {
-        console.warn("Firestore plans sync warning:", e);
-      } finally {
-        setSyncing(false);
-      }
-    }
+        localStorage.setItem('shreeji_live_plans_cache', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
-  // 1. Add a new benefit point to a specific plan
   const addBenefitPoint = async (planId, textEn, textGu = '') => {
     if (!textEn.trim()) return;
-    const updated = plans.map(p => {
-      if (p.id === planId) {
-        return {
-          ...p,
-          benefitsEn: [...p.benefitsEn, textEn.trim()],
-          benefitsGu: [...p.benefitsGu, (textGu.trim() || textEn.trim())]
-        };
-      }
-      return p;
-    });
-    await savePlans(updated);
+    patchLocal((prev) =>
+      prev.map((p) =>
+        p.id === planId
+          ? { ...p, benefitsEn: [...p.benefitsEn, textEn.trim()], benefitsGu: [...p.benefitsGu, textGu.trim() || textEn.trim()] }
+          : p
+      )
+    );
   };
 
-  // 2. Remove a benefit point by index
   const removeBenefitPoint = async (planId, index) => {
-    const updated = plans.map(p => {
-      if (p.id === planId) {
-        const newEn = p.benefitsEn.filter((_, idx) => idx !== index);
-        const newGu = p.benefitsGu.filter((_, idx) => idx !== index);
-        return {
-          ...p,
-          benefitsEn: newEn,
-          benefitsGu: newGu
-        };
-      }
-      return p;
-    });
-    await savePlans(updated);
+    patchLocal((prev) =>
+      prev.map((p) =>
+        p.id === planId
+          ? { ...p, benefitsEn: p.benefitsEn.filter((_, i) => i !== index), benefitsGu: p.benefitsGu.filter((_, i) => i !== index) }
+          : p
+      )
+    );
   };
 
-  // 3. Edit an existing benefit point
   const editBenefitPoint = async (planId, index, newTextEn, newTextGu = '') => {
-    const updated = plans.map(p => {
-      if (p.id === planId) {
+    patchLocal((prev) =>
+      prev.map((p) => {
+        if (p.id !== planId) return p;
         const newEn = [...p.benefitsEn];
         const newGu = [...p.benefitsGu];
         newEn[index] = newTextEn.trim();
-        newGu[index] = (newTextGu.trim() || newTextEn.trim());
-        return {
-          ...p,
-          benefitsEn: newEn,
-          benefitsGu: newGu
-        };
-      }
-      return p;
-    });
-    await savePlans(updated);
+        newGu[index] = newTextGu.trim() || newTextEn.trim();
+        return { ...p, benefitsEn: newEn, benefitsGu: newGu };
+      })
+    );
   };
 
-  // 4. Update plan details (Price, Taglines, Featured)
   const updatePlan = async (planId, updates) => {
-    const updated = plans.map(p => {
-      if (p.id === planId) {
-        return { ...p, ...updates };
-      }
-      return p;
-    });
-    await savePlans(updated);
+    patchLocal((prev) => prev.map((p) => (p.id === planId ? { ...p, ...updates } : p)));
   };
 
-  // 5. Reset to default initial plans
   const resetToDefaultPlans = async () => {
-    await savePlans(defaultPlans);
+    await refreshPlans();
   };
 
   return (
-    <PlansContext.Provider value={{
-      plans,
-      addBenefitPoint,
-      removeBenefitPoint,
-      editBenefitPoint,
-      updatePlan,
-      resetToDefaultPlans,
-      syncing
-    }}>
+    <PlansContext.Provider
+      value={{
+        plans,
+        addBenefitPoint,
+        removeBenefitPoint,
+        editBenefitPoint,
+        updatePlan,
+        resetToDefaultPlans,
+        refreshPlans,
+        syncing,
+        live,
+        lastSyncedAt,
+        syncError,
+      }}
+    >
       {children}
     </PlansContext.Provider>
   );
