@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, UserCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ChevronDown, Check } from 'lucide-react';
 import { submitBookingViaAPI } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
-import { useAuth } from '../context/AuthContext';
 
 const normalizePhone = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -13,11 +12,10 @@ const normalizePhone = (phone) => {
   return digits;
 };
 
-export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
+export default function BookingForm({ selectedPlan }) {
   const { language, t } = useLanguage();
   const isGu = language === 'gu';
-  const { plans, live, syncing } = usePlans();
-  const { currentUser } = useAuth();
+  const { plans, loading: plansLoading, error: plansError, refreshPlans } = usePlans();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -29,8 +27,10 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
+  const planDropdownRef = useRef(null);
 
-  // Default to the first live plan once plans arrive.
+  // Default to the first plan once plans arrive.
   useEffect(() => {
     if (plans && plans.length > 0) {
       setFormData((prev) => {
@@ -40,29 +40,34 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
     }
   }, [plans]);
 
-  // Auto-fill logged in student details if available
-  useEffect(() => {
-    if (currentUser) {
-      setFormData(prev => ({
-        ...prev,
-        name: currentUser.displayName || currentUser.name || prev.name,
-        phone: currentUser.phone || prev.phone,
-        email: currentUser.email || prev.email
-      }));
-    }
-  }, [currentUser]);
-
   // A plan card ("Select this Plan") passes a plan id -> preselect it + scroll target.
   useEffect(() => {
     if (selectedPlan && plans && plans.length > 0) {
-      const match =
-        plans.find((p) => p.id === selectedPlan) ||
-        plans.find((p) => p.crmId === selectedPlan);
+      const match = plans.find((p) => p.id === selectedPlan);
       if (match) {
         setFormData((prev) => ({ ...prev, planId: match.id }));
       }
     }
   }, [selectedPlan, plans]);
+
+  // Close the plan dropdown on outside click or Escape.
+  useEffect(() => {
+    if (!planDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (planDropdownRef.current && !planDropdownRef.current.contains(e.target)) {
+        setPlanDropdownOpen(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setPlanDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [planDropdownOpen]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -89,6 +94,14 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
       return;
     }
 
+    if (!selectedPlanObj) {
+      setToast({
+        type: 'error',
+        text: isGu ? 'પ્લાન લોડ થઈ રહ્યા છે. કૃપા કરીને થોડી રાહ જુઓ અને ફરી પ્રયાસ કરો.' : 'Plans are still loading. Please wait a moment and try again.'
+      });
+      return;
+    }
+
     setLoading(true);
     setToast(null);
 
@@ -96,22 +109,19 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
       name: formData.name.trim(),
       phone: cleanPhone,
       email: (formData.email || '').trim(),
-      planId: selectedPlanObj?.crmId || selectedPlanObj?.id || formData.planId || '',
+      planId: selectedPlanObj?.id || formData.planId || '',
       planName: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
       plan: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
-      message: formData.message || '',
-      userId: currentUser?.uid || null,
-      directConfirm: !!currentUser
+      message: formData.message || ''
     };
 
     try {
-      // Single reliable path: backend API -> CRM `students` (status Pending).
       const booking = await submitBookingViaAPI(submissionCopy);
       const ref = booking?.id || `REQ-${Date.now()}`;
       setToast({
         type: 'success',
         text: isGu
-          ? `બુકિંગ સફળ! રેફરન્સ: ${ref}. અમારી ટીમ ટૂંક સમયમાં સંપર્ક કરશે.${live ? '' : ' (નોટ: પ્લાન યાદી કેશમાંથી બતાવાઈ છે)'}`
+          ? `બુકિંગ સફળ! રેફરન્સ: ${ref}. અમારી ટીમ ટૂંક સમયમાં સંપર્ક કરશે.`
           : `Booking confirmed! Reference: ${ref}. Our team will contact you shortly.`
       });
       setFormData((prev) => ({ ...prev, message: '' }));
@@ -155,36 +165,6 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
           <p className="mt-4 text-base sm:text-lg text-[#F5E4E4]/80 max-w-xl mx-auto">
             {t('booking.subtitle')}
           </p>
-
-          {/* Live CRM sync indicator */}
-          <div className="mt-3 flex items-center justify-center gap-2 text-[11px] font-semibold">
-            {syncing ? (
-              <span className="inline-flex items-center gap-1.5 text-amber-300">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {isGu ? 'લાઇવ પ્લાન સિંક થઈ રહ્યા છે…' : 'Syncing live plans from CRM…'}
-              </span>
-            ) : live ? (
-              <span className="inline-flex items-center gap-1.5 text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {isGu ? 'CRM સાથે લાઇવ કનેક્ટેડ — પ્લાન સીધા CRMમાંથી' : 'Live connected to CRM — plans load directly from backend'}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-amber-300">
-                <AlertCircle className="w-3.5 h-3.5" />
-                {isGu ? 'બેકએન્ડ ઉપલબ્ધ નથી — કેશ કરેલા પ્લાન બતાવાય છે' : 'Backend unreachable — showing cached plans'}
-              </span>
-            )}
-          </div>
-
-          {/* Logged in indicator banner */}
-          {currentUser && (
-            <div className="mt-4 inline-flex items-center gap-2 bg-emerald-900/50 border border-emerald-500/40 text-emerald-200 px-4 py-1.5 rounded-full text-xs font-semibold">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>
-                {isGu ? `લોગિન છે: ${currentUser.displayName || 'વિદ્યાર્થી'} (સીટ સીધી કન્ફર્મ થશે)` : `Logged in as ${currentUser.displayName || 'Student'} (Seat will confirm instantly)`}
-              </span>
-            </div>
-          )}
         </motion.div>
 
         {/* Toast Alert */}
@@ -271,35 +251,97 @@ export default function BookingForm({ selectedPlan, onOpenStudentPortal }) {
               <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4] mb-2">
                 {t('booking.planSelect')}
               </label>
-              <select
-                name="planId"
-                value={formData.planId}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-2xl bg-white/90 text-[#201E1F] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#EB6A30] transition-all"
-              >
-                {plans && plans.length > 0 ? (
-                  plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {isGu ? p.nameGu : p.nameEn} — {isGu ? p.taglineGu : p.taglineEn} · ₹{p.price}/mo
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="half-day">
-                      {isGu ? 'હાફ ડે પ્લાન (૬-૮ કલાક) — ₹700/માસિક' : 'Half Day — 6-8 hrs · ₹700/mo'}
-                    </option>
-                    <option value="full-day">
-                      {isGu ? 'ફુલ ડે પ્લાન (૧૭ કલાક) — ₹1000/માસિક' : 'Full Day — 17 hrs · ₹1000/mo'}
-                    </option>
-                  </>
+              <div ref={planDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setPlanDropdownOpen((open) => !open)}
+                  aria-haspopup="listbox"
+                  aria-expanded={planDropdownOpen}
+                  disabled={plansLoading || plans.length === 0}
+                  className={`w-full px-4 py-3.5 rounded-2xl bg-white text-[#201E1F] text-sm font-medium flex items-center justify-between gap-3 transition-all border-2 disabled:opacity-70 disabled:cursor-wait ${
+                    planDropdownOpen ? 'border-[#EB6A30]' : 'border-transparent'
+                  } focus:outline-none focus:border-[#EB6A30]`}
+                >
+                  {plansLoading ? (
+                    <span className="text-gray-500">
+                      {isGu ? 'પ્લાન લોડ થઈ રહ્યા છે…' : 'Loading plans…'}
+                    </span>
+                  ) : selectedPlanObj ? (
+                    <span className="flex items-center justify-between gap-3 flex-1 min-w-0">
+                      <span className="truncate font-semibold">
+                        {isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn}
+                      </span>
+                      <span className="shrink-0 text-xs font-bold text-white bg-[#983132] px-2.5 py-1 rounded-full">
+                        ₹{selectedPlanObj.price}{selectedPlanObj.duration ? ` · ${selectedPlanObj.duration}` : ''}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">
+                      {isGu ? 'કોઈ પ્લાન ઉપલબ્ધ નથી' : 'No plans available'}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 shrink-0 text-[#983132] transition-transform duration-200 ${planDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {plansError && plans.length === 0 && (
+                  <p className="mt-1.5 text-[11px] text-amber-300">
+                    {isGu ? 'પ્લાન લોડ થઈ શક્યા નથી. ' : 'Could not load plans. '}
+                    <button type="button" onClick={refreshPlans} className="underline font-bold hover:text-white">
+                      {isGu ? 'ફરી પ્રયાસ કરો' : 'Retry'}
+                    </button>
+                  </p>
                 )}
-              </select>
-              {selectedPlanObj && (
-                <p className="mt-1.5 text-[11px] text-white/60">
-                  {isGu ? 'પસંદ કરેલ: ' : 'Selected: '}{isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn} · ₹{selectedPlanObj.price}
-                  {selectedPlanObj.duration ? ` · ${selectedPlanObj.duration}` : ''}
-                </p>
-              )}
+
+                <AnimatePresence>
+                  {planDropdownOpen && (
+                    <motion.ul
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                      transition={{ duration: 0.18 }}
+                      role="listbox"
+                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden p-1.5"
+                    >
+                      {plans.map((p) => {
+                        const isSelected = p.id === formData.planId;
+                        return (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              onClick={() => {
+                                setFormData((prev) => ({ ...prev, planId: p.id }));
+                                setPlanDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-colors ${
+                                isSelected ? 'bg-[#FFF0E8]' : 'hover:bg-[#FFF8F5]'
+                              }`}
+                            >
+                              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                isSelected ? 'border-[#EB6A30] bg-[#EB6A30] text-white' : 'border-gray-300 text-transparent'
+                              }`}>
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-sm font-bold truncate">
+                                  {isGu ? p.nameGu : p.nameEn}
+                                </span>
+                                <span className="block text-[11px] text-[#201E1F]/60 truncate">
+                                  {isGu ? p.taglineGu : p.taglineEn}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-xs font-extrabold text-[#983132]">
+                                ₹{p.price}{p.duration ? ` / ${p.duration}` : ''}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
           </div>

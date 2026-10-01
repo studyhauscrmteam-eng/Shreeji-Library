@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { PlansProvider } from './context/PlansContext';
-import { AuthProvider } from './context/AuthContext';
 import Preloader from './components/Preloader';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -20,13 +19,10 @@ import BookingForm from './components/BookingForm';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import AdminModal from './components/AdminModal';
-import StudentAuthModal from './components/StudentAuthModal';
 
 function MainApp() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [studentBookingData, setStudentBookingData] = useState(null);
 
   const scrollToBooking = () => {
     const el = document.getElementById('booking') || document.getElementById('contact');
@@ -40,11 +36,6 @@ function MainApp() {
     scrollToBooking();
   };
 
-  const handleOpenStudentPortal = (data) => {
-    setStudentBookingData(data);
-    setIsStudentModalOpen(true);
-  };
-
   return (
     <div className="min-h-screen bg-white text-[#201E1F] selection:bg-[#EB6A30] selection:text-white relative overflow-x-hidden max-w-full w-full">
       
@@ -54,8 +45,6 @@ function MainApp() {
       {/* Navigation Header */}
       <Navbar 
         onOpenBooking={scrollToBooking} 
-        onOpenAuth={() => { setStudentBookingData(null); setIsStudentModalOpen(true); }}
-        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Hero Section */}
@@ -70,10 +59,9 @@ function MainApp() {
       {/* Why Us / Key Features Grid */}
       <Features />
 
-      {/* Membership Pricing Section with Software Plan Manager Option */}
+      {/* Membership Pricing Section */}
       <MembershipPricing 
         onSelectPlan={handleSelectPlan} 
-        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Facilities Showcase Section */}
@@ -100,13 +88,11 @@ function MainApp() {
       {/* Seat Booking Form */}
       <BookingForm 
         selectedPlan={selectedPlan} 
-        onOpenStudentPortal={handleOpenStudentPortal}
       />
 
       {/* Footer */}
       <Footer 
         onOpenAdmin={() => setIsAdminOpen(true)} 
-        onOpenAuth={() => { setStudentBookingData(null); setIsStudentModalOpen(true); }}
       />
 
       {/* Floating Go To Top Button */}
@@ -118,14 +104,6 @@ function MainApp() {
         onClose={() => setIsAdminOpen(false)} 
       />
 
-      {/* Unified Firebase Student & Admin Auth Modal */}
-      <StudentAuthModal
-        isOpen={isStudentModalOpen}
-        onClose={() => setIsStudentModalOpen(false)}
-        initialData={studentBookingData}
-        onAdminSuccess={() => setIsAdminOpen(true)}
-      />
-
     </div>
   );
 }
@@ -133,11 +111,9 @@ function MainApp() {
 export default function App() {
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <PlansProvider>
-          <MainApp />
-        </PlansProvider>
-      </AuthProvider>
+      <PlansProvider>
+        <MainApp />
+      </PlansProvider>
     </LanguageProvider>
   );
 }

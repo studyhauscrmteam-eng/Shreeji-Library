@@ -11,14 +11,6 @@ import {
   where,
   serverTimestamp
 } from 'firebase/firestore';
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile
-} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -32,16 +24,14 @@ const firebaseConfig = {
 
 let app = null;
 let db = null;
-let auth = null;
 let isFirebaseReady = false;
 
 try {
   if (firebaseConfig.apiKey) {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     db = getFirestore(app);
-    auth = getAuth(app);
     isFirebaseReady = true;
-    console.log("🔥 Firebase Auth & Firestore successfully initialized");
+    console.log("🔥 Firebase Firestore successfully initialized");
   } else {
     console.warn("⚠️ Firebase environment variables not found. Falling back to local auth mode.");
   }
@@ -50,18 +40,16 @@ try {
 }
 
 /**
- * NOTE (CRM sync architecture):
- * Public Firestore security rules on studyhaus-crm deny unauthenticated
- * client reads/writes (permission-denied). So ALL website <-> CRM traffic
- * must go through our backend API (`/api/*`), which uses the Firebase
- * Admin SDK and bypasses those rules:
+ * NOTE (backend API architecture):
+ * The website talks to our backend API (`/api/*`), which uses the Firebase
+ * Admin SDK and bypasses locked public Firestore security rules:
  *
- *   GET  /api/plans    -> live `membershipPlans` (CRM-managed)
- *   POST /api/bookings -> creates a Pending `students` doc visible in CRM
- *   GET  /api/bookings -> recent CRM `students` inquiries
+ *   GET  /api/plans    -> membership plans (single source of truth)
+ *   POST /api/bookings -> creates a Pending inquiry
+ *   GET  /api/bookings -> recent inquiries (staff Admin portal)
  */
 
-// Fetch live membership plans from the backend (single source of truth = CRM).
+// Fetch membership plans from the backend (single source of truth).
 export const fetchLivePlans = async () => {
   const res = await fetch('/api/plans');
   const data = await res.json().catch(() => ({}));
@@ -71,8 +59,7 @@ export const fetchLivePlans = async () => {
   return data.data || [];
 };
 
-// Submit a website inquiry through the backend so it lands in the CRM
-// `students` collection with status Pending.
+// Submit a website inquiry through the backend API.
 export const submitBookingViaAPI = async (bookingData) => {
   const res = await fetch('/api/bookings', {
     method: 'POST',
@@ -96,13 +83,7 @@ export const saveBookingToFirestore = async (bookingData) => {
 export {
   app,
   db,
-  auth,
   isFirebaseReady,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
   doc,
   setDoc,
   getDoc,

@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, Globe, User, Shield } from 'lucide-react';
+import { Menu, X, ChevronRight, Globe } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { useAuth } from '../context/AuthContext';
 
-export default function Navbar({ onOpenBooking, onOpenAuth, onOpenAdmin }) {
+export default function Navbar({ onOpenBooking }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
-  const { currentUser, logout, isAdmin } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -104,99 +102,31 @@ export default function Navbar({ onOpenBooking, onOpenAuth, onOpenAdmin }) {
               </button>
             </div>
 
-            {/* User / Admin Trigger Button */}
-            {currentUser ? (
-              <button
-                onClick={isAdmin ? onOpenAdmin : onOpenAuth}
-                className={`text-xs font-bold px-4 py-2.5 rounded-full border flex items-center gap-1.5 transition-all shadow-sm ${
-                  isAdmin 
-                    ? 'bg-[#983132] hover:bg-[#7f2728] text-white border-[#983132]' 
-                    : 'bg-[#EB6A30] hover:bg-[#d5571e] text-white border-[#EB6A30]'
-                }`}
-                title={isAdmin ? 'Open Admin Staff Software' : 'View Study Pass / Account'}
-              >
-                {isAdmin ? <Shield className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-                <span>{isAdmin ? 'Admin' : (currentUser.displayName?.split(' ')[0] || 'Pass')}</span>
-              </button>
-            ) : (
-              <button
-                onClick={onOpenAuth}
-                className={`text-xs font-bold px-4 py-2.5 rounded-full border transition-all flex items-center gap-1.5 ${
-                  scrolled 
-                    ? 'border-[#983132] text-[#983132] hover:bg-[#983132] hover:text-white' 
-                    : 'border-white/40 text-white bg-black/30 backdrop-blur-sm hover:bg-white/20'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>{language === 'gu' ? 'લોગિન' : 'Login'}</span>
-              </button>
-            )}
-
-            {/* Primary Action Button (Sign Out when logged in, Book a Seat when logged out) */}
-            {currentUser ? (
-              <button
-                onClick={logout}
-                className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 group ${
-                  scrolled
-                    ? 'bg-[#983132] hover:bg-[#7f2728] text-white hover:shadow-[#983132]/20'
-                    : 'bg-white hover:bg-white/90 text-[#201E1F]'
-                }`}
-                title="Sign Out"
-              >
-                <span>{language === 'gu' ? 'લૉગ આઉટ' : 'Sign Out'}</span>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            ) : (
-              <button
-                onClick={onOpenBooking}
-                className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 group ${
-                  scrolled
-                    ? 'bg-[#983132] hover:bg-[#7f2728] text-white hover:shadow-[#983132]/20'
-                    : 'bg-white hover:bg-white/90 text-[#201E1F]'
-                }`}
-              >
-                <span>{t('nav.bookSeat')}</span>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            )}
+            {/* Primary Action Button (Book a Seat) */}
+            <button
+              onClick={onOpenBooking}
+              className={`text-sm font-semibold px-5 py-2.5 rounded-full transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 group ${
+                scrolled
+                  ? 'bg-[#983132] hover:bg-[#7f2728] text-white hover:shadow-[#983132]/20'
+                  : 'bg-white hover:bg-white/90 text-[#201E1F]'
+              }`}
+            >
+              <span>{t('nav.bookSeat')}</span>
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </button>
 
           </div>
 
           {/* Mobile Menu & Language Toggle */}
           <div className="md:hidden flex items-center gap-2">
-            {/* Mobile Auth Button */}
-            <button
-              onClick={isAdmin ? onOpenAdmin : onOpenAuth}
-              className={`text-xs font-bold px-2.5 py-1.5 rounded-full border flex items-center gap-1 ${
-                isAdmin 
-                  ? 'bg-[#983132] text-white border-[#983132]' 
-                  : currentUser 
-                  ? 'bg-[#EB6A30] text-white border-[#EB6A30]' 
-                  : 'border-white/30 text-white bg-white/10'
-              }`}
-            >
-              {isAdmin ? <Shield className="w-3 h-3" /> : <User className="w-3 h-3 text-[#EB6A30]" />}
-              <span>{currentUser ? (isAdmin ? 'Admin' : (currentUser.displayName?.split(' ')[0] || 'Pass')) : (language === 'gu' ? 'લોગિન' : 'Login')}</span>
-            </button>
-
             {/* Mobile Main CTA Button */}
-            {currentUser ? (
-              <button
-                onClick={logout}
-                className="bg-[#983132] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1"
-              >
-                <span>{language === 'gu' ? 'લૉગ આઉટ' : 'Sign Out'}</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            ) : (
-              <button
-                onClick={onOpenBooking}
-                className="bg-[#983132] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1"
-              >
-                <span>{t('nav.bookSeat')}</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            )}
+            <button
+              onClick={onOpenBooking}
+              className="bg-[#983132] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1"
+            >
+              <span>{t('nav.bookSeat')}</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
 
             {/* Mobile Language Switcher */}
             <button
@@ -245,29 +175,16 @@ export default function Navbar({ onOpenBooking, onOpenAuth, onOpenAdmin }) {
           </nav>
 
           <div className="pt-4 border-t border-[#F5E4E4] flex flex-col gap-3">
-            {currentUser ? (
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  logout();
-                }}
-                className="w-full bg-[#983132] hover:bg-[#7f2728] text-white font-semibold py-3 rounded-full text-sm transition-colors text-center shadow-md flex items-center justify-center gap-2"
-              >
-                <span>{language === 'gu' ? 'લૉગ આઉટ' : 'Sign Out'}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenBooking();
-                }}
-                className="w-full bg-[#983132] hover:bg-[#7f2728] text-white font-semibold py-3 rounded-full text-sm transition-colors text-center shadow-md flex items-center justify-center gap-2"
-              >
-                <span>{t('nav.bookSeat')}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenBooking();
+              }}
+              className="w-full bg-[#983132] hover:bg-[#7f2728] text-white font-semibold py-3 rounded-full text-sm transition-colors text-center shadow-md flex items-center justify-center gap-2"
+            >
+              <span>{t('nav.bookSeat')}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
