@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X, Lock, RefreshCw, UserCheck, Loader2, Search, Clock3,
-  CheckCircle2, Hourglass, Inbox, Phone, Mail, CalendarDays, Armchair,
-  Bell, BellRing, XCircle, Check
+  CheckCircle2, Hourglass, Inbox, Phone, Mail, CalendarDays, Armchair
 } from 'lucide-react';
 
 const timeAgo = (v) => {
@@ -29,24 +28,23 @@ const timeAgo = (v) => {
 const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 function StatusBadge({ status }) {
-  const kind = status === 'Active' ? 'active' : status === 'Rejected' ? 'rejected' : 'pending';
-  const styles = {
-    active: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/30',
-    rejected: 'bg-rose-400/10 text-rose-300 border-rose-400/30',
-    pending: 'bg-amber-400/10 text-amber-300 border-amber-400/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]',
-  };
-  const dots = { active: 'bg-emerald-400', rejected: 'bg-rose-400', pending: 'bg-amber-400' };
-  const label = status === 'Pending' ? 'Pending approval' : status;
+  const pending = status !== 'Active';
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border ${styles[kind]}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+        pending
+          ? 'bg-amber-400/10 text-amber-300 border-amber-400/30 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+          : 'bg-emerald-400/10 text-emerald-300 border-emerald-400/30'
+      }`}
+    >
       <span className="relative flex w-1.5 h-1.5">
-        {kind === 'pending' && (
+        {pending && (
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
         )}
-        <span className={`relative inline-flex rounded-full w-1.5 h-1.5 ${dots[kind]}`} />
+        <span className={`relative inline-flex rounded-full w-1.5 h-1.5 ${pending ? 'bg-amber-400' : 'bg-emerald-400'}`} />
       </span>
-      {kind === 'active' ? <CheckCircle2 className="w-3 h-3" /> : kind === 'rejected' ? <XCircle className="w-3 h-3" /> : <Hourglass className="w-3 h-3" />}
-      {label}
+      {pending ? <Hourglass className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+      {pending ? 'Pending approval' : 'Active'}
     </span>
   );
 }
@@ -197,181 +195,30 @@ export default function AdminModal({ isOpen, onClose }) {
   );
 }
 
-function NotificationBell({ unread, items, onMarkAllRead, onRefresh, loadingNotif }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-    };
-    const esc = (e) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open ]);
-
-  return (
-    <div ref={wrapRef} className="relative shrink-0">
-      <button
-        onClick={() => { setOpen((o) => !o); if (!open) onRefresh(); }}
-        aria-label="Notifications"
-        className={`relative p-2 rounded-full border transition-colors ${
-          unread > 0
-            ? 'bg-[#EB6A30]/15 border-[#EB6A30]/40 text-[#EB6A30] shadow-[0_0_14px_rgba(235,106,48,0.35)]'
-            : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/25'
-        }`}
-      >
-        {unread > 0 ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-        {unread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-[#EB6A30] to-[#c2410c] text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-[#201E1F] shadow-lg">
-            {unread > 9 ? '9+' : unread}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[85vw] rounded-2xl bg-[#2A2325] border border-white/10 shadow-2xl overflow-hidden z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-white/70">
-              Notifications {unread > 0 && <span className="text-[#EB6A30]">({unread} new)</span>}
-            </p>
-            {unread > 0 && (
-              <button onClick={onMarkAllRead} className="text-[11px] font-bold text-[#EB6A30] hover:text-white transition-colors">
-                Mark all read
-              </button>
-            )}
-          </div>
-          <div className="max-h-72 overflow-y-auto">
-            {loadingNotif && items.length === 0 && (
-              <p className="px-4 py-6 text-center text-xs text-white/40">Loading…</p>
-            )}
-            {!loadingNotif && items.length === 0 && (
-              <div className="px-4 py-8 text-center">
-                <Bell className="w-8 h-8 text-white/15 mx-auto mb-2" />
-                <p className="text-xs text-white/45">You're all caught up. New admission requests will pop up here.</p>
-              </div>
-            )}
-            {items.map((n) => (
-              <div key={n.id} className="px-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.04] transition-colors">
-                <p className="text-xs font-bold text-white">{n.title || 'New admission request'}</p>
-                <p className="text-[11px] text-white/55 mt-0.5 leading-relaxed">{n.body}</p>
-                <p className="text-[10px] text-white/30 mt-1">{timeAgo(n.createdAt)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AdminList({ bookings, loading, filter, setFilter, search, setSearch, statusOf, savingBookingId, onRefresh, onStatusChange }) {
-  // WhatsApp-style live notifications: bell badge + browser tab badge.
-  const [notifItems, setNotifItems] = useState([]);
-  const [unread, setUnread] = useState(0);
-  const [loadingNotif, setLoadingNotif] = useState(false);
-  const [arrivalToast, setArrivalToast] = useState('');
-  const prevUnreadRef = useRef(null);
-  const origTitleRef = useRef(typeof document !== 'undefined' ? document.title : '');
-
-  const fetchNotifications = useCallback(async (silent = false) => {
-    if (!silent) setLoadingNotif(true);
-    try {
-      const res = await fetch('/api/notifications');
-      const data = await res.json().catch(() => ({}));
-      if (data.success) {
-        const count = Number(data.unreadCount) || 0;
-        if (prevUnreadRef.current !== null && count > prevUnreadRef.current) {
-          const diff = count - prevUnreadRef.current;
-          setArrivalToast(`${diff} new admission request${diff > 1 ? 's' : ''} just came in`);
-          setTimeout(() => setArrivalToast(''), 6000);
-          onRefresh();
-        }
-        prevUnreadRef.current = count;
-        setUnread(count);
-        setNotifItems(Array.isArray(data.data) ? data.data : []);
-      }
-    } catch (e) {
-      console.error('Failed to load notifications:', e);
-    } finally {
-      if (!silent) setLoadingNotif(false);
-    }
-  }, [onRefresh]);
-
-  useEffect(() => {
-    fetchNotifications();
-    const timer = setInterval(() => fetchNotifications(true), 15000);
-    return () => clearInterval(timer);
-  }, [fetchNotifications]);
-
-  // Browser tab badge like "(1) WhatsApp" — restored when read/closed.
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    document.title = unread > 0 ? `(${unread}) New admission • ShreeJi Admin` : origTitleRef.current;
-  }, [unread]);
-
-  useEffect(() => () => {
-    if (typeof document !== 'undefined') document.title = origTitleRef.current;
-  }, []);
-
-  const markAllRead = async () => {
-    try {
-      await fetch('/api/notifications/read', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-    } catch (e) {
-      console.error('Failed to mark notifications read:', e);
-    } finally {
-      prevUnreadRef.current = 0;
-      setUnread(0);
-      setNotifItems([]);
-      if (typeof document !== 'undefined') document.title = origTitleRef.current;
-    }
-  };
-
-  const isPending = (b) => statusOf(b) === 'Pending';
   const counts = useMemo(() => ({
     All: bookings.length,
-    Pending: bookings.filter((b) => statusOf(b) === 'Pending').length,
+    Pending: bookings.filter((b) => statusOf(b) !== 'Active').length,
     Active: bookings.filter((b) => statusOf(b) === 'Active').length,
-    Rejected: bookings.filter((b) => statusOf(b) === 'Rejected').length,
   }), [bookings, statusOf]);
 
   const q = search.trim().toLowerCase();
+  const isPending = (b) => statusOf(b) !== 'Active';
   const visible = bookings
     .filter((b) => {
       if (filter === 'Pending') return isPending(b);
-      if (filter === 'Active') return statusOf(b) === 'Active';
-      if (filter === 'Rejected') return statusOf(b) === 'Rejected';
+      if (filter === 'Active') return !isPending(b);
       return true;
     })
     .filter((b) => {
+      if (filter === 'Pending' && !isPending(b)) return false;
+      if (filter === 'Active' && isPending(b)) return false;
       if (!q) return true;
       return [b.name, b.phone, b.email, b.planName, b.plan].filter(Boolean).join(' ').toLowerCase().includes(q);
     });
 
-  const pills = counts.Rejected > 0 ? ['All', 'Pending', 'Active', 'Rejected'] : ['All', 'Pending', 'Active'];
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-
-      {/* Live arrival banner (WhatsApp-style ping inside the portal) */}
-      {arrivalToast && (
-        <div className="mx-5 sm:mx-6 mt-4 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#EB6A30]/10 border border-[#EB6A30]/30 text-xs font-bold text-[#FFB37E] shadow-[0_0_18px_rgba(235,106,48,0.2)]">
-          <BellRing className="w-4 h-4 shrink-0 animate-pulse" />
-          <span className="flex-1">{arrivalToast}</span>
-          <button onClick={() => setArrivalToast('')} className="text-white/40 hover:text-white"><X className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 px-5 sm:px-6 pt-5">
@@ -392,8 +239,8 @@ function AdminList({ bookings, loading, filter, setFilter, search, setSearch, st
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 sm:px-6 pt-4 pb-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          {pills.map((st) => (
+        <div className="flex items-center gap-2">
+          {['All', 'Pending', 'Active'].map((st) => (
             <button
               key={st}
               onClick={() => setFilter(st)}
@@ -429,7 +276,6 @@ function AdminList({ bookings, loading, filter, setFilter, search, setSearch, st
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {loading ? 'Loading…' : 'Refresh'}
           </button>
-          <NotificationBell unread={unread} items={notifItems} onMarkAllRead={markAllRead} onRefresh={() => fetchNotifications()} loadingNotif={loadingNotif} />
         </div>
       </div>
 
@@ -463,16 +309,14 @@ function AdminList({ bookings, loading, filter, setFilter, search, setSearch, st
               <div
                 key={b.id}
                 className={`group p-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.06] border transition-colors flex flex-col gap-3 ${
-                  st === 'Active' ? 'border-emerald-400/15' : st === 'Rejected' ? 'border-rose-400/20' : 'border-amber-400/20'
+                  st === 'Active' ? 'border-emerald-400/15' : 'border-amber-400/20'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`w-11 h-11 rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold border ${
                     st === 'Active'
                       ? 'bg-emerald-400/10 text-emerald-300 border-emerald-400/25'
-                      : st === 'Rejected'
-                        ? 'bg-rose-400/10 text-rose-300 border-rose-400/25'
-                        : 'bg-gradient-to-br from-[#EB6A30]/25 to-[#983132]/25 text-[#FFB37E] border-[#EB6A30]/25'
+                      : 'bg-gradient-to-br from-[#EB6A30]/25 to-[#983132]/25 text-[#FFB37E] border-[#EB6A30]/25'
                   }`}>
                     {initialsOf(b.name)}
                   </div>
@@ -519,35 +363,22 @@ function AdminList({ bookings, loading, filter, setFilter, search, setSearch, st
                 )}
 
                 <div className="flex items-center gap-2 pt-1">
-                  {st !== 'Active' && (
-                    <button
-                      onClick={() => onStatusChange(b.id, 'Active')}
-                      disabled={savingBookingId === b.id}
-                      className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:brightness-110 text-white text-xs font-bold px-5 py-2 rounded-full transition-all shadow-lg shadow-emerald-900/40 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                      Approve
-                    </button>
-                  )}
-                  {st !== 'Rejected' ? (
-                    <button
-                      onClick={() => onStatusChange(b.id, 'Rejected')}
-                      disabled={savingBookingId === b.id}
-                      className="inline-flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 hover:border-rose-400/50 text-rose-300 hover:text-rose-200 text-xs font-bold px-5 py-2 rounded-full transition-all shadow-lg shadow-rose-950/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                      Reject
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onStatusChange(b.id, 'Pending')}
-                      disabled={savingBookingId === b.id}
-                      className="inline-flex items-center gap-1.5 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 hover:border-amber-400/50 text-amber-300 hover:text-amber-200 text-xs font-bold px-5 py-2 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarDays className="w-3.5 h-3.5" />}
-                      Move to Pending
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onStatusChange(b.id, 'Active')}
+                    disabled={savingBookingId === b.id}
+                    className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:brightness-110 text-white text-xs font-bold px-4 py-2 rounded-full transition-all shadow-lg shadow-emerald-900/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    Confirm Seat
+                  </button>
+                  <button
+                    onClick={() => onStatusChange(b.id, 'Pending')}
+                    disabled={savingBookingId === b.id}
+                    className="inline-flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/15 text-white/70 hover:text-white text-xs font-bold px-4 py-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingBookingId === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarDays className="w-3.5 h-3.5" />}
+                    Mark Pending
+                  </button>
                 </div>
               </div>
             );
