@@ -364,6 +364,20 @@ app.post('/api/students', async (req, res) => {
       const ref = await adminDb.collection('admissions').add(doc);
       id = ref.id;
     }
+    try {
+      await adminDb.collection('notifications').add({
+        type: 'new-admission',
+        title: 'New admission request',
+        body: `${doc.name} (${cleanPhone}) requested "${doc.planName}". Open Admissions → Pending approval.`,
+        admissionId: id,
+        studentId: '',
+        read: false,
+        forRoles: ['Owner/Admin', 'Manager'],
+        createdAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('Notification write failed:', e.message);
+    }
     res.status(201).json({ success: true, data: { id, ...doc } });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });
