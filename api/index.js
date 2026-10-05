@@ -60,18 +60,23 @@ async function getLivePlans() {
   return plans;
 }
 
-async function findStudentByPhoneOrEmail(identifier) {
+async function findAdmissionByPhoneOrEmail(identifier) {
   if (!adminDb || !identifier) return null;
   const clean = String(identifier).trim();
   const phone = normalizePhone(clean);
   const lower = clean.toLowerCase();
-  const snapshot = await adminDb.collection('students').get();
+  const snapshot = await adminDb.collection('admissions').get();
   for (const d of snapshot.docs) {
     const v = d.data();
     if (phone && normalizePhone(v.phone || '') === phone) return { id: d.id, ...v };
     if (v.email && String(v.email).toLowerCase() === lower) return { id: d.id, ...v };
   }
   return null;
+}
+
+// Legacy alias — website never blocks duplicates (CRM blocks at approval).
+async function findStudentByPhoneOrEmail(identifier) {
+  return findAdmissionByPhoneOrEmail(identifier);
 }
 
 app.get('/api/health', async (req, res) => {
@@ -98,7 +103,7 @@ app.get('/api/plans', async (req, res) => {
 app.get('/api/bookings', async (req, res) => {
   if (!adminDb) return res.json({ success: true, count: 0, data: [], source: 'not-configured' });
   try {
-    const snapshot = await adminDb.collection('students').get();
+    const snapshot = await adminDb.collection('admissions').get();
     const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     all.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
     res.json({ success: true, count: Math.min(all.length, 100), data: all.slice(0, 100), source: 'crm-live' });
@@ -111,14 +116,14 @@ app.get('/api/students/lookup', async (req, res) => {
   if (!adminDb) return res.status(503).json({ success: false, message: 'Backend not connected to CRM.' });
   const { identifier } = req.query;
   if (!identifier) return res.status(400).json({ success: false, message: 'identifier query param required' });
-  const found = await findStudentByPhoneOrEmail(identifier);
+  const found = await findAdmissionByPhoneOrEmail(identifier);
   if (!found) return res.status(404).json({ success: false, message: 'Student not found' });
   const { password, ...safe } = found;
   res.json({ success: true, data: safe });
 });
 
 app.post('/api/bookings', async (req, res) => {
-  const { name, phone, email, plan, planId, planName, startDate, message, userId } = req.body;
+  const { name, phone, email, plan, planId, planName, startDate, message, userId, uid, dob, gender, paymentMethod, transactionId, paymentDueDate, remarks, termsAccepted } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ success: false, message: 'Name and Phone number are required.' });
   }
@@ -146,39 +151,63 @@ app.post('/api/bookings', async (req, res) => {
     }
   } catch {}
 
-  const existing = await findStudentByPhoneOrEmail(cleanPhone).catch(() => null);
-  if (existing && existing.status === 'Active') {
-    return res.status(409).json({ success: false, message: 'This mobile number already has an active admission. Please login instead.' });
-  }
-
   const nowIso = new Date().toISOString();
+  // CRM `admissions` schema — NEVER `students`, NEVER Active/Approved,
+  // NEVER seatNumber, no studentId. No duplicate blocking (CRM approves).
   const inquiry = {
     name: String(name).trim(),
     phone: cleanPhone,
-    email: (email || '').trim(),
-    dob: '',
-    gender: '',
+    email: String(email || '').trim().toLowerCase(),
+    dob: dob || '',
+    gender: gender || '',
+    parentPhone: '',
+    college: '',
+    course: '',
+    address: '',
     planId: resolvedPlanId,
     planName: resolvedPlanName,
     seatNumber: '',
-    seatAssigned: '',
+    paymentMethod: paymentMethod === 'Paid' ? 'Paid' : 'Pay Later',
+    transactionId: String(transactionId || '').trim(),
+    paymentDueDate: paymentDueDate || '',
     status: 'Pending',
     approvalStatus: 'Pending',
     role: 'Student',
-    feeStatus: 'Pending',
+    uid: uid || userId || null,
+    termsAccepted: termsAccepted === true || termsAccepted === 'true' ? true : Boolean(uid || userId),
     source: 'Website',
     isStudentSubmission: true,
-    remarks: message || '',
+    remarks: remarks ?? message ?? '',
     startDate: startDate || nowIso.split('T')[0],
-    userId: userId || null,
+    userId: userId || uid || null,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
 
   try {
-    const docRef = await adminDb.collection('students').add(inquiry);
-    console.log(`[ShreeJi Vercel] Website inquiry -> students/${docRef.id}: ${inquiry.name} (${cleanPhone})`);
-    res.status(201).json({ success: true, message: 'Booking request sent successfully!', booking: { id: docRef.id, ...inquiry } });
+    const admissionUid = uid || userId;
+    let docId;
+    if (admissionUid) {
+      await adminDb.collection('admissions').doc(String(admissionUid)).set(inquiry, { merge: true });
+      docId = String(admissionUid);
+    } else {
+      const docRef = await adminDb.collection('admissions').add(inquiry);
+      docId = docRef.id;
+    }
+    try {
+      await adminDb.collection('notifications').add({
+        type: 'new-admission',
+        title: 'New admission request',
+        body: `${inquiry.name} (${cleanPhone}) requested "${resolvedPlanName}". Open Admissions → Pending approval.`,
+        admissionId: docId,
+        studentId: '',
+        read: false,
+        forRoles: ['Owner/Admin', 'Manager'],
+        createdAt: new Date().toISOString(),
+      });
+    } catch {}
+    console.log(`[ShreeJi Vercel] Website admission -> admissions/${docId}: ${inquiry.name} (${cleanPhone})`);
+    res.status(201).json({ success: true, message: 'Request received — pending admin approval. We will email you once approved.', booking: { id: docId, ...inquiry } });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to save booking. Please try again.' });
   }
@@ -186,23 +215,32 @@ app.post('/api/bookings', async (req, res) => {
 
 app.post('/api/students', async (req, res) => {
   if (!adminDb) return res.status(503).json({ success: false, message: 'Signup unavailable: backend not connected to CRM.' });
-  const { name, phone, email, planId, planName } = req.body;
+  const { name, phone, email, planId, planName, uid, userId, dob, gender } = req.body;
   if (!name || !phone) return res.status(400).json({ success: false, message: 'Name and Phone are required.' });
   const cleanPhone = normalizePhone(phone);
   if (!/^\d{10}$/.test(cleanPhone)) return res.status(400).json({ success: false, message: 'Enter a valid 10-digit mobile number.' });
-  const existing = await findStudentByPhoneOrEmail(cleanPhone).catch(() => null);
-  if (existing) return res.status(409).json({ success: false, message: 'An account with this mobile number already exists. Please login instead.' });
   const nowIso = new Date().toISOString();
   const doc = {
-    name: String(name).trim(), phone: cleanPhone, email: (email || '').trim(),
-    dob: '', gender: '', planId: planId || '', planName: planName || '',
-    seatNumber: '', seatAssigned: '', status: 'Pending', approvalStatus: 'Pending',
-    role: 'Student', feeStatus: 'Pending', source: 'Website', isStudentSubmission: true,
+    name: String(name).trim(), phone: cleanPhone, email: String(email || '').trim().toLowerCase(),
+    dob: dob || '', gender: gender || '', parentPhone: '', college: '', course: '', address: '',
+    planId: planId || '', planName: planName || '',
+    seatNumber: '', paymentMethod: 'Pay Later', transactionId: '', paymentDueDate: '',
+    status: 'Pending', approvalStatus: 'Pending',
+    role: 'Student', uid: uid || userId || null, termsAccepted: true,
+    source: 'Website', isStudentSubmission: true,
     remarks: '', createdAt: nowIso, updatedAt: nowIso,
   };
   try {
-    const ref = await adminDb.collection('students').add(doc);
-    res.status(201).json({ success: true, data: { id: ref.id, ...doc } });
+    const admissionUid = uid || userId;
+    let id;
+    if (admissionUid) {
+      await adminDb.collection('admissions').doc(String(admissionUid)).set(doc, { merge: true });
+      id = String(admissionUid);
+    } else {
+      const ref = await adminDb.collection('admissions').add(doc);
+      id = ref.id;
+    }
+    res.status(201).json({ success: true, data: { id, ...doc } });
   } catch {
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });
   }
@@ -213,7 +251,7 @@ app.patch('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const { status, remarks } = req.body;
   try {
-    const ref = adminDb.collection('students').doc(id);
+    const ref = adminDb.collection('admissions').doc(id);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ success: false, message: 'Booking not found.' });
     const updates = { updatedAt: new Date().toISOString() };

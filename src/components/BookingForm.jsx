@@ -12,6 +12,21 @@ const normalizePhone = (phone) => {
   return digits;
 };
 
+// Strict 10-digit Indian mobile: exactly 10 digits, starting 6-9.
+const isValidPhone10 = (phone) => /^[6-9]\d{9}$/.test(String(phone || ''));
+
+// Sanitize phone keystrokes/paste to digits-only, max 10 digits.
+// Tolerates "+91…" / "0…" pastes by keeping the last 10 digits.
+const sanitizePhoneInput = (value) => {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length > 10) {
+    if (digits.startsWith('91') && digits.length <= 12) digits = digits.slice(-10);
+    else if (digits.startsWith('0') && digits.length === 11) digits = digits.slice(-10);
+    else digits = digits.slice(0, 10);
+  }
+  return digits.slice(0, 10);
+};
+
 export default function BookingForm({ selectedPlan }) {
   const { language, t } = useLanguage();
   const isGu = language === 'gu';
@@ -27,8 +42,13 @@ export default function BookingForm({ selectedPlan }) {
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [phoneError, setPhoneError] = useState('');
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const planDropdownRef = useRef(null);
+  // The plan field only shows a loading state on the very first load.
+  // Background plan syncs are silent, so the dropdown never blinks/reloads.
+  const plansEmpty = !plans || plans.length === 0;
+  const plansBusy = plansLoading && plansEmpty;
 
   // Default to the first plan once plans arrive.
   useEffect(() => {
@@ -70,7 +90,21 @@ export default function BookingForm({ selectedPlan }) {
   }, [planDropdownOpen]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      const clean = sanitizePhoneInput(value);
+      setFormData((prev) => ({ ...prev, phone: clean }));
+      // Live 10-digit feedback (only after the user typed something).
+      if (clean.length > 0 && clean.length < 10) {
+        setPhoneError(isGu ? 'मोबाइल नंबर १० अंक का होना चाहिए.' : 'Mobile number must be 10 digits.');
+      } else if (clean.length === 10 && !isValidPhone10(clean)) {
+        setPhoneError(isGu ? 'सही १० अंक का मोबाइल नंबर डालें (6-9 से शुरू).' : 'Enter a valid 10-digit mobile number (starts 6-9).');
+      } else {
+        setPhoneError('');
+      }
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const selectedPlanObj = plans?.find((p) => p.id === formData.planId) || plans?.[0] || null;
@@ -86,13 +120,13 @@ export default function BookingForm({ selectedPlan }) {
       });
       return;
     }
-    if (!/^\d{10}$/.test(cleanPhone)) {
-      setToast({
-        type: 'error',
-        text: isGu ? 'કૃપા કરીને સાચો ૧૦ અંકનો મોબાઇલ નંબર દાખલ કરો.' : 'Please enter a valid 10-digit mobile number.'
-      });
+    if (cleanPhone.length !== 10 || !isValidPhone10(cleanPhone)) {
+      const msg = isGu ? 'કૃપા કરીને સાચો ૧૦ અંકનો મોબાઇલ નંબર દાખલ કરો (ફક્ત અંક, 6-9 થી શરૂ).' : 'Please enter a valid 10-digit mobile number (digits only, starts 6-9).';
+      setPhoneError(isGu ? 'मोबाइल नंबर १० अंक का होना चाहिए.' : 'Mobile number must be 10 digits.');
+      setToast({ type: 'error', text: msg });
       return;
     }
+    setPhoneError('');
 
     if (!selectedPlanObj) {
       setToast({
@@ -121,8 +155,8 @@ export default function BookingForm({ selectedPlan }) {
       setToast({
         type: 'success',
         text: isGu
-          ? `બુકિંગ સફળ! રેફરન્સ: ${ref}. અમારી ટીમ ટૂંક સમયમાં સંપર્ક કરશે.`
-          : `Booking confirmed! Reference: ${ref}. Our team will contact you shortly.`
+          ? `વિનંતી મળી ગઈ છે — એડમિન મંજૂરી બાકી છે. Ref: ${ref}. મંજૂર થયે અમે તમને ઇમેઇલ કરીશું.`
+          : `Request received — pending admin approval. Ref: ${ref}. We will email you once approved.`
       });
       setFormData((prev) => ({ ...prev, message: '' }));
     } catch (err) {
@@ -223,9 +257,21 @@ export default function BookingForm({ selectedPlan }) {
                 onChange={handleChange}
                 placeholder={t('booking.phonePlaceholder')}
                 required
-                maxLength={13}
-                className="w-full px-4 py-3.5 rounded-2xl bg-white/90 text-[#201E1F] placeholder-gray-500 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#EB6A30] transition-all"
+                inputMode="numeric"
+                pattern="[6-9][0-9]{9}"
+                minLength={10}
+                maxLength={10}
+                autoComplete="tel-national"
+                aria-invalid={phoneError ? 'true' : 'false'}
+                className={`w-full px-4 py-3.5 rounded-2xl bg-white/90 text-[#201E1F] placeholder-gray-500 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${phoneError ? 'focus:ring-red-500 ring-2 ring-red-400' : 'focus:ring-[#EB6A30]'}`}
               />
+              {phoneError ? (
+                <p className="mt-1.5 text-[11px] font-semibold text-red-300">{phoneError}</p>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-white/40">
+                  {formData.phone.length}/10 {isGu ? 'અંક' : 'digits'}
+                </p>
+              )}
             </div>
 
           </div>
@@ -257,12 +303,12 @@ export default function BookingForm({ selectedPlan }) {
                   onClick={() => setPlanDropdownOpen((open) => !open)}
                   aria-haspopup="listbox"
                   aria-expanded={planDropdownOpen}
-                  disabled={plansLoading || plans.length === 0}
+                  disabled={plansBusy}
                   className={`w-full px-4 py-3.5 rounded-2xl bg-white text-[#201E1F] text-sm font-medium flex items-center justify-between gap-3 transition-all border-2 disabled:opacity-70 disabled:cursor-wait ${
                     planDropdownOpen ? 'border-[#EB6A30]' : 'border-transparent'
                   } focus:outline-none focus:border-[#EB6A30]`}
                 >
-                  {plansLoading ? (
+                  {plansBusy ? (
                     <span className="text-gray-500">
                       {isGu ? 'પ્લાન લોડ થઈ રહ્યા છે…' : 'Loading plans…'}
                     </span>

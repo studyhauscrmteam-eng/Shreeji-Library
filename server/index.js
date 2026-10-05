@@ -91,22 +91,23 @@ async function getLivePlans() {
   return plans;
 }
 
-// Website inquiries are stored as `students` docs with status Pending so
-// they appear directly in the CRM student / approval queue.
+// Website inquiries are stored as `admissions` docs with status Pending so
+// they appear in the CRM Admissions → Pending approval queue.
+// NEVER write website submissions to `students` — admin approval creates it.
 async function getRecentInquiries(limit = 50) {
   if (!adminDb) return getLocalBookings();
-  const snapshot = await adminDb.collection('students').get();
+  const snapshot = await adminDb.collection('admissions').get();
   const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
   all.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
   return all.slice(0, limit);
 }
 
-async function findStudentByPhoneOrEmail(identifier) {
+async function findAdmissionByPhoneOrEmail(identifier) {
   if (!adminDb || !identifier) return null;
   const clean = String(identifier).trim();
   const phone = normalizePhone(clean);
   // Try phone match (both raw and normalized) then email match
-  const snapshot = await adminDb.collection('students').get();
+  const snapshot = await adminDb.collection('admissions').get();
   const lower = clean.toLowerCase();
   for (const d of snapshot.docs) {
     const v = d.data();
@@ -114,6 +115,11 @@ async function findStudentByPhoneOrEmail(identifier) {
     if (v.email && String(v.email).toLowerCase() === lower) return { id: d.id, ...v };
   }
   return null;
+}
+
+// Legacy alias (website no longer checks duplicates — CRM blocks at approval).
+async function findStudentByPhoneOrEmail(identifier) {
+  return findAdmissionByPhoneOrEmail(identifier);
 }
 
 // ================= API Routes =================
@@ -151,7 +157,7 @@ app.get('/api/plans', async (req, res) => {
   }
 });
 
-// GET inquiries (CRM students, most recent first)
+// GET inquiries (CRM admissions, most recent first)
 app.get('/api/bookings', async (req, res) => {
   try {
     const inquiries = await getRecentInquiries(100);
@@ -162,12 +168,12 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Student lookup for website login (searches CRM students by phone/email)
+// Student lookup for website login (searches CRM admissions by phone/email)
 app.get('/api/students/lookup', async (req, res) => {
   try {
     const { identifier } = req.query;
     if (!identifier) return res.status(400).json({ success: false, message: 'identifier query param required' });
-    const found = await findStudentByPhoneOrEmail(identifier);
+    const found = await findAdmissionByPhoneOrEmail(identifier);
     if (!found) return res.status(404).json({ success: false, message: 'Student not found' });
     // Never expose passwords to the website
     const { password, ...safe } = found;
@@ -177,9 +183,12 @@ app.get('/api/students/lookup', async (req, res) => {
   }
 });
 
-// POST new booking / inquiry -> creates a Pending student visible in the CRM
+// POST new booking / inquiry -> creates a Pending ADMISSION visible in the CRM
+// Admissions → Pending approval queue. NEVER writes to `students`.
+// Contract: status "Pending", approvalStatus "Pending", seatNumber "", no
+// studentId, no Active. No duplicate blocking here (CRM blocks at approval).
 app.post('/api/bookings', async (req, res) => {
-  const { name, phone, email, plan, planId, planName, startDate, message, userId, directConfirm } = req.body;
+  const { name, phone, email, plan, planId, planName, startDate, message, userId, uid, dob, gender, paymentMethod, transactionId, paymentDueDate, remarks, termsAccepted, directConfirm } = req.body;
 
   if (!name || !phone) {
     return res.status(400).json({ success: false, message: 'Name and Phone number are required.' });
@@ -215,60 +224,84 @@ app.post('/api/bookings', async (req, res) => {
   }
   if (!resolvedPlanName) resolvedPlanName = 'Monthly - ₹1,000';
 
-  // Block duplicate active admissions for the same phone
-  try {
-    const existing = await findStudentByPhoneOrEmail(cleanPhone);
-    if (existing && existing.status === 'Active') {
-      return res.status(409).json({
-        success: false,
-        message: 'This mobile number already has an active admission. Please login instead.',
-      });
-    }
-  } catch (e) {
-    console.warn('Duplicate check notice:', e.message);
-  }
+  // NOTE: no duplicate phone/email blocking from the website (contract §3) —
+  // just submit as Pending; the CRM blocks duplicates at approval.
 
   const nowIso = new Date().toISOString();
-  // Schema matches the CRM `students` collection so the lead shows up in the CRM.
+  // Schema matches the CRM `admissions` collection so the request shows up in
+  // Admissions → Pending approval (query where status == "Pending").
+  // NEVER writes to `students`, NEVER Active/Approved, NEVER seatNumber.
   const inquiry = {
     name: String(name).trim(),
     phone: cleanPhone,
-    email: (email || '').trim(),
-    dob: '',
-    gender: '',
+    email: String(email || '').trim().toLowerCase(),
+    dob: dob || '',
+    gender: gender || '',
+    parentPhone: '',
+    college: '',
+    course: '',
+    address: '',
     planId: resolvedPlanId,
     planName: resolvedPlanName,
     seatNumber: '',
-    seatAssigned: '',
+    paymentMethod: paymentMethod === 'Paid' ? 'Paid' : 'Pay Later',
+    transactionId: (transactionId || '').trim(),
+    paymentDueDate: paymentDueDate || '',
     status: 'Pending',
     approvalStatus: 'Pending',
     role: 'Student',
-    feeStatus: 'Pending',
+    uid: uid || userId || null,
+    termsAccepted: termsAccepted === true || termsAccepted === 'true' ? true : Boolean(uid || userId),
     source: 'Website',
     isStudentSubmission: true,
-    remarks: message || '',
+    remarks: remarks ?? message ?? '',
     startDate: startDate || nowIso.split('T')[0],
-    userId: userId || null,
+    userId: userId || uid || null,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
 
   // Save via Admin SDK (works even though public Firestore rules are locked)
+  // to the `admissions` collection — NEVER `students`.
   if (adminDb) {
     try {
-      const docRef = await adminDb.collection('students').add(inquiry);
-      console.log(`[ShreeJi] Website inquiry saved to CRM students/${docRef.id}: ${inquiry.name} (${cleanPhone}) - ${resolvedPlanName}`);
+      let docId;
+      const admissionUid = uid || userId;
+      if (admissionUid) {
+        // Doc ID must equal Auth uid: admissions/{uid}
+        await adminDb.collection('admissions').doc(String(admissionUid)).set(inquiry, { merge: true });
+        docId = String(admissionUid);
+      } else {
+        const docRef = await adminDb.collection('admissions').add(inquiry);
+        docId = docRef.id;
+      }
+      console.log(`[ShreeJi] Website admission saved to CRM admissions/${docId}: ${inquiry.name} (${cleanPhone}) - ${resolvedPlanName}`);
+      // Admin notification so it surfaces with count badge + toast in the CRM.
+      try {
+        await adminDb.collection('notifications').add({
+          type: 'new-admission',
+          title: 'New admission request',
+          body: `${inquiry.name} (${cleanPhone}) requested "${resolvedPlanName}". Open Admissions → Pending approval.`,
+          admissionId: docId,
+          studentId: '',
+          read: false,
+          forRoles: ['Owner/Admin', 'Manager'],
+          createdAt: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('Notification write failed:', e.message);
+      }
       // Local backup
       const local = getLocalBookings();
-      local.unshift({ id: docRef.id, ...inquiry });
+      local.unshift({ id: docId, ...inquiry });
       saveLocalBookings(local.slice(0, 200));
       return res.status(201).json({
         success: true,
-        message: 'Booking request sent successfully! Our library coordinator will contact you shortly.',
-        booking: { id: docRef.id, ...inquiry },
+        message: 'Request received — pending admin approval. We will email you once approved.',
+        booking: { id: docId, ...inquiry },
       });
     } catch (e) {
-      console.error('Firestore inquiry save failed, using local fallback:', e.message);
+      console.error('Firestore admission save failed, using local fallback:', e.message);
     }
   }
 
@@ -285,29 +318,35 @@ app.post('/api/bookings', async (req, res) => {
   });
 });
 
-// Website signup -> also creates a Pending CRM student (no seat assigned yet)
+// Website signup -> creates a Pending CRM ADMISSION (no seat assigned yet).
+// NEVER writes to `students`. No duplicate blocking (CRM blocks at approval).
 app.post('/api/students', async (req, res) => {
-  const { name, phone, email, planId, planName } = req.body;
+  const { name, phone, email, planId, planName, uid, userId, dob, gender } = req.body;
   if (!name || !phone) return res.status(400).json({ success: false, message: 'Name and Phone are required.' });
   const cleanPhone = normalizePhone(phone);
   if (!/^\d{10}$/.test(cleanPhone)) return res.status(400).json({ success: false, message: 'Enter a valid 10-digit mobile number.' });
-  const existing = await findStudentByPhoneOrEmail(cleanPhone).catch(() => null);
-  if (existing) return res.status(409).json({ success: false, message: 'An account with this mobile number already exists. Please login instead.' });
   const nowIso = new Date().toISOString();
   const doc = {
     name: String(name).trim(),
     phone: cleanPhone,
-    email: (email || '').trim(),
-    dob: '',
-    gender: '',
+    email: String(email || '').trim().toLowerCase(),
+    dob: dob || '',
+    gender: gender || '',
+    parentPhone: '',
+    college: '',
+    course: '',
+    address: '',
     planId: planId || '',
     planName: planName || '',
     seatNumber: '',
-    seatAssigned: '',
+    paymentMethod: 'Pay Later',
+    transactionId: '',
+    paymentDueDate: '',
     status: 'Pending',
     approvalStatus: 'Pending',
     role: 'Student',
-    feeStatus: 'Pending',
+    uid: uid || userId || null,
+    termsAccepted: true,
     source: 'Website',
     isStudentSubmission: true,
     remarks: '',
@@ -316,21 +355,29 @@ app.post('/api/students', async (req, res) => {
   };
   if (!adminDb) return res.status(503).json({ success: false, message: 'Signup unavailable: backend not connected to CRM.' });
   try {
-    const ref = await adminDb.collection('students').add(doc);
-    res.status(201).json({ success: true, data: { id: ref.id, ...doc } });
+    const admissionUid = uid || userId;
+    let id;
+    if (admissionUid) {
+      await adminDb.collection('admissions').doc(String(admissionUid)).set(doc, { merge: true });
+      id = String(admissionUid);
+    } else {
+      const ref = await adminDb.collection('admissions').add(doc);
+      id = ref.id;
+    }
+    res.status(201).json({ success: true, data: { id, ...doc } });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });
   }
 });
 
-// PATCH booking status (Admin) — updates the CRM student doc
+// PATCH admission (Admin) — updates the CRM admissions doc. NEVER touches students.
 app.patch('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const { status, remarks } = req.body;
 
   if (adminDb) {
     try {
-      const ref = adminDb.collection('students').doc(id);
+      const ref = adminDb.collection('admissions').doc(id);
       const snap = await ref.get();
       if (!snap.exists) return res.status(404).json({ success: false, message: 'Booking not found.' });
       const updates = { updatedAt: new Date().toISOString() };

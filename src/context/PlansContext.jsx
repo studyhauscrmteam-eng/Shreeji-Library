@@ -62,37 +62,51 @@ export const PlansProvider = ({ children }) => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Signature of the last applied list — silent refreshes skip setPlans when
+  // data is unchanged so dropdowns/cards don't blink or re-animate.
+  const lastSignatureRef = React.useRef('');
 
-  const refreshPlans = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  const refreshPlans = useCallback(async (silent = false) => {
+    // Silent background refreshes never touch `loading` (the dropdown only
+    // shows "Loading…" when the list is empty AND loading is true).
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const backendPlans = await fetchLivePlans();
       const list = Array.isArray(backendPlans) ? backendPlans : [];
       const sorted = [...list].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
-      setPlans(sorted.map((p, i) => mapBackendPlanToWebsite(p, i, sorted.length)));
+      const mapped = sorted.map((p, i) => mapBackendPlanToWebsite(p, i, sorted.length));
+      const signature = JSON.stringify(mapped.map((p) => [p.id, p.nameEn, p.price, p.duration, p.seatType, p.status, p.notes]));
+      if (signature !== lastSignatureRef.current) {
+        lastSignatureRef.current = signature;
+        setPlans(mapped);
+      }
+      if (!silent) setError('');
     } catch (e) {
-      setPlans([]);
-      setError(e.message || 'Could not load plans.');
+      // Never wipe a good list on a failed background poll — keep showing
+      // cached plans instead of blinking to an error/empty state.
+      if (!silent && lastSignatureRef.current === '') {
+        setError(e.message || 'Could not load plans.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  // Load on mount + silently re-poll so backend changes appear without redeploy.
+  // Load once on mount. A slow silent background sync (5 min) picks up
+  // CRM plan changes without blinking the dropdown: it never sets `loading`
+  // and never replaces the list when data is unchanged. No focus refetch —
+  // tabbing back to the page used to flip the field into "Loading…".
   useEffect(() => {
-    refreshPlans();
-    const timer = setInterval(refreshPlans, 30000);
-    const onFocus = () => refreshPlans();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-    };
+    refreshPlans(false);
+    const timer = setInterval(() => refreshPlans(true), 300000);
+    return () => clearInterval(timer);
   }, [refreshPlans]);
 
   return (
-    <PlansContext.Provider value={{ plans, loading, error, refreshPlans }}>
+    <PlansContext.Provider value={{ plans, loading, error, refreshPlans: () => refreshPlans(false) }}>
       {children}
     </PlansContext.Provider>
   );
