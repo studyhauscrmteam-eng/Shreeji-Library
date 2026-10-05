@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { fetchLivePlans } from '../firebase';
+import { fetchLivePlans, fetchDirectPlans } from '../firebase';
 
 const PlansContext = createContext();
 
@@ -48,6 +48,8 @@ const mapBackendPlanToWebsite = (backendPlan, index, total) => {
     duration,
     seatType,
     status: backendPlan.status || 'Active',
+    // Per-plan seat selection flag from the CRM. Missing flag = view-only.
+    seatPreference: backendPlan.seatPreference === true,
     notes,
     featured,
     badgeEn: featured ? 'Recommended' : '',
@@ -74,11 +76,21 @@ export const PlansProvider = ({ children }) => {
       setError('');
     }
     try {
-      const backendPlans = await fetchLivePlans();
-      const list = Array.isArray(backendPlans) ? backendPlans : [];
+      // Backend first (local dev), direct Firestore when it fails or is
+      // empty (static hosting has no /api — it would serve the homepage).
+      let list = [];
+      try {
+        const backendPlans = await fetchLivePlans();
+        if (Array.isArray(backendPlans) && backendPlans.length > 0) list = backendPlans;
+      } catch {}
+      if (list.length === 0) list = await fetchDirectPlans();
       const sorted = [...list].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
       const mapped = sorted.map((p, i) => mapBackendPlanToWebsite(p, i, sorted.length));
-      const signature = JSON.stringify(mapped.map((p) => [p.id, p.nameEn, p.price, p.duration, p.seatType, p.status, p.notes]));
+      // The CRM `featured` flag is the ONLY source of the Recommended badge.
+      // No flags anywhere = no badge anywhere (never auto-crown a plan).
+      const isFlagged = (p) => p && (p.featured === true || p.featured === 'true');
+      mapped.forEach((m, i) => { m.featured = isFlagged(sorted[i]); });
+      const signature = JSON.stringify(mapped.map((p) => [p.id, p.nameEn, p.price, p.duration, p.seatType, p.status, p.notes, p.featured, p.seatPreference, p.badgeEn]));
       if (signature !== lastSignatureRef.current) {
         lastSignatureRef.current = signature;
         setPlans(mapped);

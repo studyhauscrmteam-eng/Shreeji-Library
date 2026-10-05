@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ChevronDown, Check } from 'lucide-react';
-import { submitBookingViaAPI } from '../firebase';
+import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ChevronDown, Check, RockingChair as ChairIcon } from 'lucide-react';
+import { submitAdmissionDirect, listenSeats } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
+import SeatMapPicker from './SeatMapPicker';
 
 const normalizePhone = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -45,10 +47,64 @@ export default function BookingForm({ selectedPlan }) {
   const [phoneError, setPhoneError] = useState('');
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const planDropdownRef = useRef(null);
+  // Live seats (direct Firestore SDK, anonymous session). The picker reads
+  // these; selection is only sent when the chosen plan allows it.
+  const [seats, setSeats] = useState([]);
+  const [seatsLoading, setSeatsLoading] = useState(true);
+  const [seatsError, setSeatsError] = useState('');
+  const [selectedSeat, setSelectedSeat] = useState(null); // { id, seatNumber } | null
+  const [seatModalOpen, setSeatModalOpen] = useState(false);
+
+  // Freeze the background page scroll while the seat popup is open.
+  // Both <html> and <body> are locked: the app root's overflow-x-hidden
+  // makes the document element itself a scroll container in some browsers,
+  // so locking body alone still lets the background move.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!seatModalOpen) return;
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, [seatModalOpen]);
   // The plan field only shows a loading state on the very first load.
   // Background plan syncs are silent, so the dropdown never blinks/reloads.
   const plansEmpty = !plans || plans.length === 0;
   const plansBusy = plansLoading && plansEmpty;
+
+  useEffect(() => {
+    // No subscription at all unless at least one plan allows selection —
+    // otherwise the seat feature doesn't exist in this form.
+    if (!plans.some((p) => p.seatPreference === true)) {
+      setSeatsLoading(false);
+      return;
+    }
+    setSeatsLoading(true);
+    const unsub = listenSeats(
+      (liveSeats) => {
+        setSeats(Array.isArray(liveSeats) ? liveSeats : []);
+        setSeatsLoading(false);
+        setSeatsError('');
+        // Drop the pick if it just got taken/removed.
+        setSelectedSeat((prev) => {
+          if (!prev) return prev;
+          const still = (Array.isArray(liveSeats) ? liveSeats : []).find(
+            (s) => s.id === prev.id && s.status === 'Available'
+          );
+          return still ? { id: still.id, seatNumber: still.seatNumber } : null;
+        });
+      },
+      (err) => {
+        setSeatsLoading(false);
+        setSeatsError(err?.message || 'Could not load the seat map.');
+      }
+    );
+    return unsub;
+  }, [plans]);
 
   // Default to the first plan once plans arrive.
   useEffect(() => {
@@ -108,6 +164,15 @@ export default function BookingForm({ selectedPlan }) {
   };
 
   const selectedPlanObj = plans?.find((p) => p.id === formData.planId) || plans?.[0] || null;
+  const freeSeats = seats.filter((s) => s.status === 'Available').length;
+  // Per-plan seat preference from the CRM (missing flag = view-only).
+  const seatSelectable = selectedPlanObj?.seatPreference === true;
+
+  // A pick only survives on a preference plan — switching to a view-only
+  // plan clears it so nothing is ever sent for those plans.
+  useEffect(() => {
+    if (!seatSelectable) setSelectedSeat(null);
+  }, [seatSelectable, formData.planId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,21 +201,37 @@ export default function BookingForm({ selectedPlan }) {
       return;
     }
 
+    // Preference plan = seat is compulsory. No pick, no submission.
+    // (Non-preference plans skip this entirely — normal flow.)
+    if (seatSelectable && !selectedSeat) {
+      setSeatModalOpen(true);
+      setToast({
+        type: 'error',
+        text: isGu
+          ? 'કૃપા કરીને સીટ મેપમાંથી તમારી સીટ પસંદ કરો — આ પ્લાન માટે સીટ ફરજિયાત છે.'
+          : 'Please choose your seat from the map — a seat is required for this plan.'
+      });
+      return;
+    }
+
     setLoading(true);
     setToast(null);
 
-    const submissionCopy = {
-      name: formData.name.trim(),
-      phone: cleanPhone,
-      email: (formData.email || '').trim(),
-      planId: selectedPlanObj?.id || formData.planId || '',
-      planName: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
-      plan: selectedPlanObj ? `${selectedPlanObj.nameEn} — ₹${selectedPlanObj.price}/mo` : '',
-      message: formData.message || ''
-    };
-
+    // Direct-SDK submit (static hosting — no /api fallback, so one fill can
+    // never create twin admissions). planName is the exact CRM plan name;
+    // seatNumber/seatId travel only on preference plans.
     try {
-      const booking = await submitBookingViaAPI(submissionCopy);
+      const booking = await submitAdmissionDirect({
+        name: formData.name.trim(),
+        phone: cleanPhone,
+        email: (formData.email || '').trim(),
+        planId: selectedPlanObj?.id || formData.planId || '',
+        planName: selectedPlanObj ? selectedPlanObj.nameEn : '',
+        message: formData.message || '',
+        seatNumber: seatSelectable && selectedSeat ? selectedSeat.seatNumber : '',
+        seatId: seatSelectable && selectedSeat ? selectedSeat.id : '',
+        seatSelectable,
+      });
       const ref = booking?.id || `REQ-${Date.now()}`;
       setToast({
         type: 'success',
@@ -159,11 +240,12 @@ export default function BookingForm({ selectedPlan }) {
           : `Request received — pending admin approval. Ref: ${ref}. We will email you once approved.`
       });
       setFormData((prev) => ({ ...prev, message: '' }));
+      setSelectedSeat(null);
     } catch (err) {
-      console.error('Booking submit failed:', err);
+      console.error('Admission submit failed:', err);
       setToast({
         type: 'error',
-        text: err.message || (isGu ? 'બુકિંગ નિષ્ફળ ગઈ. કૃપા કરીને ફરી પ્રયાસ કરો.' : 'Booking failed. Please try again.')
+        text: err.message || (isGu ? 'વિનંતી નિષ્ફળ ગઈ. કૃપા કરીને ફરી પ્રયાસ કરો.' : 'Request failed. Please try again.')
       });
     } finally {
       setLoading(false);
@@ -346,7 +428,7 @@ export default function BookingForm({ selectedPlan }) {
                       exit={{ opacity: 0, y: -8, scale: 0.98 }}
                       transition={{ duration: 0.18 }}
                       role="listbox"
-                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden p-1.5"
+                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden p-1.5 max-h-72 overflow-y-auto overscroll-contain"
                     >
                       {plans.map((p) => {
                         const isSelected = p.id === formData.planId;
@@ -391,6 +473,125 @@ export default function BookingForm({ selectedPlan }) {
             </div>
 
           </div>
+
+          {/* Seat preference — rendered ONLY when the chosen plan allows it */}
+          {seatSelectable && (
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4] mb-2">
+              {isGu ? 'સીટ પસંદગી *' : 'SEAT PREFERENCE *'}
+              <span className="ml-2 normal-case font-semibold text-emerald-300">● {isGu ? 'ફરજિયાત' : 'required'}</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setSeatModalOpen(true)}
+              className="group w-full px-4 py-3 rounded-2xl bg-white text-[#201E1F] text-sm flex items-center gap-3 transition-all hover:shadow-xl border-2 border-transparent hover:border-[#EB6A30] focus:outline-none focus:border-[#EB6A30] text-left"
+            >
+              <span className="w-10 h-10 rounded-xl bg-[#FFF0E8] text-[#983132] flex items-center justify-center shrink-0">
+                <ChairIcon className="w-5 h-5" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-bold truncate">
+                  {selectedSeat
+                    ? `Seat ${selectedSeat.seatNumber}`
+                    : (isGu ? 'તમારી સીટ પસંદ કરો' : 'Choose your seat')}
+                </span>
+                <span className="block text-[11px] text-[#201E1F]/50 font-medium">
+                  {seatsLoading
+                    ? (isGu ? 'લોડ થઈ રહ્યું છે…' : 'Loading live seats…')
+                    : seatsError
+                      ? (isGu ? 'મેપ ઉપલબ્ધ નથી' : 'Map unavailable')
+                      : `${freeSeats} ${isGu ? 'સીટ ખાલી' : 'desks free'}`}
+                </span>
+              </span>
+              {selectedSeat ? (
+                <span className="shrink-0 font-mono text-[11px] font-bold text-[#983132] bg-[#F5E4E4] px-2.5 py-1.5 rounded-lg">
+                  {selectedSeat.seatNumber}
+                </span>
+              ) : (
+                <ChevronDown className="w-4 h-4 shrink-0 text-[#983132] -rotate-90 transition-transform group-hover:-translate-x-0.5" />
+              )}
+            </button>
+            {selectedSeat && (
+              <p className="mt-1.5 text-[11px] font-semibold text-emerald-300">
+                ✓ {isGu ? `સીટ ${selectedSeat.seatNumber} પસંદ થઈ` : `Seat ${selectedSeat.seatNumber} selected`}
+              </p>
+            )}
+
+        {/* Seat map popup — portal-rendered to document.body so it covers the
+            whole website (above navbar, form and everything), z-[150] */}
+        {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence initial={false}>
+          {seatModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setSeatModalOpen(false)}
+              className="fixed inset-0 z-[150] bg-black/75 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 24, scale: 0.98 }}
+                transition={{ duration: 0.25 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden rounded-3xl border border-[#F5E4E4] bg-[#FFF8F5] text-[#201E1F] shadow-2xl"
+              >
+
+              <div className="px-4 sm:px-6 pb-2 pt-4 flex-1 min-h-0 overflow-y-auto bg-[#FFF8F5]">
+                {seatsLoading ? (
+                  <div className="animate-pulse space-y-2 py-4">
+                    <div className="h-8 bg-[#F5E4E4] rounded-full w-48" />
+                    <div className="h-56 bg-white rounded-2xl border border-[#F5E4E4]" />
+                    <p className="text-[11px] text-[#201E1F]/45">{isGu ? 'સીટ મેપ લોડ થઈ રહ્યો છે…' : 'Loading live seat map…'}</p>
+                  </div>
+                ) : seatsError ? (
+                  <div className="text-center py-8">
+                    <p className="text-xs text-amber-700 font-bold">
+                      {isGu ? 'સીટ મેપ લોડ થઈ શક્યો નથી.' : 'Could not load the live seat map.'}
+                    </p>
+                    <p className="mt-2 text-[11px] text-[#201E1F]/50">
+                      {isGu ? 'તમે સીટ વગર પણ ફોર્મ મોકલી શકો છો — એડમિન સીટ ફાળવશે.' : 'You can still submit without a seat — the admin will assign one.'}
+                    </p>
+                  </div>
+                ) : (
+                  <SeatMapPicker
+                    seats={seats}
+                    selectable={seatSelectable}
+                    selectedSeatId={selectedSeat?.id || null}
+                    onSelect={setSelectedSeat}
+                    large
+                  />
+                )}
+              </div>
+
+              <div className="px-4 sm:px-6 py-4 border-t border-[#F5E4E4] bg-white flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSeatModalOpen(false)}
+                  className="flex-1 py-3 rounded-full bg-[#FFF8F5] hover:bg-[#F5E4E4] border border-[#F5E4E4] text-[#201E1F]/70 hover:text-[#201E1F] text-sm font-bold transition-colors"
+                >
+                  {isGu ? 'બંધ કરો' : 'Close'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSeatModalOpen(false)}
+                  className="flex-1 py-3 rounded-full bg-[#EB6A30] hover:bg-[#d5571e] text-white text-sm font-bold transition-colors shadow-lg"
+                >
+                  {selectedSeat
+                    ? (isGu ? `સીટ ${selectedSeat.seatNumber} સાથે આગળ` : `Done · Seat ${selectedSeat.seatNumber}`)
+                    : (isGu ? 'પૂર્ણ' : 'Done')}
+                </button>
+              </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+        )}
+          </div>
+          )}
 
           {/* Row 3: Message / Exam Goal */}
           <div>
