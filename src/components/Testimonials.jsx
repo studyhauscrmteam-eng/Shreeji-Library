@@ -77,7 +77,7 @@ export default function Testimonials() {
       name: 'Deepak Joshi',
       exam: 'UPSC Mains Qualified',
       initials: 'DJ',
-      bgColor: 'bg-[#201E1F]',
+      bgColor: 'bg-gradient-to-br from-[#EB6A30] to-[#983132]',
       text: 'Having my personal desk set up every morning meant I never wasted a single minute. The staff is polite and strictly maintains silence across all reading rooms.',
       stars: 5
     },
@@ -101,7 +101,7 @@ export default function Testimonials() {
       name: 'Priyanshi Verma',
       exam: 'SSC CGL Selected',
       initials: 'PV',
-      bgColor: 'bg-[#201E1F]',
+      bgColor: 'bg-gradient-to-br from-[#EB6A30] to-[#983132]',
       text: 'Clean, highly secure with CCTV, clean washrooms, and very supportive management. Truly a sanctuary for competitive exam preparation.',
       stars: 5
     }

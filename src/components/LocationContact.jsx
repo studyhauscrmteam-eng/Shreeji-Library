@@ -139,8 +139,8 @@ export default function LocationContact() {
                 transition={{ duration: 0.5, delay: 0.3 }}
                 className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-[#F5E4E4] shadow-sm"
               >
-                <div className="w-12 h-12 rounded-2xl bg-[#201E1F] text-white flex items-center justify-center shrink-0">
-                  <Clock className="w-6 h-6 text-[#EB6A30]" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#EB6A30] to-[#983132] text-white flex items-center justify-center shrink-0">
+                  <Clock className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h4 className="font-bold text-[#201E1F] text-base">{t('contact.timingLabel')}</h4>

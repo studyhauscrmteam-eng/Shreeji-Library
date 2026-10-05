@@ -51,9 +51,9 @@ export default function PerfectReadingSpace() {
       title: t('cubicle.f4Title'),
       desc: t('cubicle.f4Desc'),
       icon: Armchair,
-      bgColor: 'bg-[#201E1F]',
-      textColor: 'text-white',
-      pinBg: 'bg-[#201E1F]',
+      bgColor: 'bg-[#F5E4E4]',
+      textColor: 'text-[#983132]',
+      pinBg: 'bg-[#983132]',
       pinPos: { top: '78%', left: '48%' }
     }
   ];
