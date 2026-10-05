@@ -274,6 +274,8 @@ app.patch('/api/bookings/:id', async (req, res) => {
         updates.approvalStatus = 'Approved';
       } else if (status === 'Pending') {
         updates.approvalStatus = 'Pending';
+      } else if (status === 'Rejected') {
+        updates.approvalStatus = 'Rejected';
       }
     }
     if (typeof remarks === 'string') updates.remarks = remarks;
@@ -282,6 +284,43 @@ app.patch('/api/bookings/:id', async (req, res) => {
     res.json({ success: true, message: 'Booking updated in CRM.', booking: { id, ...updated.data() } });
   } catch {
     res.status(500).json({ success: false, message: 'Failed to update booking' });
+  }
+});
+
+// GET unread admin notifications (new admission requests, newest first)
+app.get('/api/notifications', async (req, res) => {
+  if (!adminDb) return res.json({ success: true, unreadCount: 0, data: [], source: 'not-configured' });
+  try {
+    const snapshot = await adminDb.collection('notifications').get();
+    const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    all.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
+    const unread = all.filter((n) => n.read === false);
+    res.json({ success: true, unreadCount: unread.length, data: unread.slice(0, 20), source: 'crm-live' });
+  } catch {
+    res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+  }
+});
+
+// PATCH mark notifications as read (body: { ids: [...] } or empty = all unread)
+app.patch('/api/notifications/read', async (req, res) => {
+  if (!adminDb) return res.status(503).json({ success: false, message: 'Backend not connected to CRM.' });
+  try {
+    const { ids } = req.body || {};
+    let refs;
+    if (Array.isArray(ids) && ids.length > 0) {
+      refs = ids.map((id) => adminDb.collection('notifications').doc(String(id)));
+    } else {
+      const snap = await adminDb.collection('notifications').where('read', '==', false).get();
+      refs = snap.docs.map((d) => d.ref);
+    }
+    if (refs.length > 0) {
+      const batch = adminDb.batch();
+      refs.forEach((r) => batch.update(r, { read: true }));
+      await batch.commit();
+    }
+    res.json({ success: true, marked: refs.length });
+  } catch {
+    res.status(500).json({ success: false, message: 'Failed to update notifications' });
   }
 });
 
