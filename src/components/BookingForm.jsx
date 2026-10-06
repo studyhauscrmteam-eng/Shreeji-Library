@@ -239,8 +239,13 @@ export default function BookingForm({ selectedPlan }) {
           ? `વિનંતી મળી ગઈ છે — એડમિન મંજૂરી બાકી છે. Ref: ${ref}. મંજૂર થયે અમે તમને ઇમેઇલ કરીશું.`
           : `Request received — pending admin approval. Ref: ${ref}. We will email you once approved.`
       });
-      setFormData((prev) => ({ ...prev, message: '' }));
+      // Clear every entered field so nothing lingers in the form after a
+      // successful submit. planId is kept (it's a page-level selection) —
+      // if it's ever empty, the default-plan effect restores plans[0].
+      setFormData({ name: '', phone: '', email: '', planId: formData.planId, message: '' });
+      setPhoneError('');
       setSelectedSeat(null);
+      setPlanDropdownOpen(false);
     } catch (err) {
       console.error('Admission submit failed:', err);
       setToast({
