@@ -133,31 +133,31 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
 
   return (
     <div>
-      {/* Legend with counts + floor switch — single line */}
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[1.5px] text-[#201E1F]/45">
+      {/* Color legend + floor switch */}
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-center gap-3 text-[13px] font-bold uppercase tracking-[0.8px] text-[#201E1F]/55">
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[4px] bg-white border-[1.5px] border-emerald-400" />
-            Free <span className="text-emerald-600 font-extrabold">{avail}</span>
+            <span className="w-3 h-3 rounded-[4px] bg-white border-[1.5px] border-emerald-400" />
+            Free
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[4px] bg-[#F5E4E4] border border-red-200" />
-            Taken <span className="text-[#201E1F]/60 font-extrabold">{floorSeats.length - avail}</span>
+            <span className="w-3 h-3 rounded-[4px] bg-[#F5E4E4] border border-red-200" />
+            Taken
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[4px] bg-[#EB6A30]" />
+            <span className="w-3 h-3 rounded-[4px] bg-[#EB6A30]" />
             Yours
           </span>
         </div>
         <div className="inline-flex items-center gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[1.5px] text-[#201E1F]/45">Floor</span>
+          <span className="text-[13px] font-bold uppercase tracking-[0.8px] text-[#201E1F]/45">Floor</span>
           <div className="inline-flex items-center gap-1 bg-[#F5E4E4] p-1 rounded-full">
             {['Ground Floor', 'First Floor'].map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setFloor(f)}
-                className={`px-3.5 py-1.5 rounded-full text-[11px] font-extrabold transition-all ${
+                className={`px-3 py-1 rounded-full text-[13px] font-extrabold transition-all ${
                   floor === f ? 'bg-[#983132] text-white shadow' : 'text-[#201E1F]/50 hover:text-[#201E1F]'
                 }`}
               >
@@ -168,10 +168,17 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
         </div>
       </div>
 
+      {/* Seat count — centered, separate from color legend */}
+      <p className="mb-3 text-center text-[15px] font-bold text-[#201E1F]/70">
+        <span className="font-extrabold text-emerald-600 text-[17px]">{avail}</span> Free
+        <span className="mx-2 text-[#201E1F]/25">•</span>
+        <span className="font-extrabold text-[#201E1F]/80 text-[17px]">{floorSeats.length - avail}</span> Taken
+      </p>
+
       {/* Map */}
       {useRoom ? (
         <div className="relative rounded-2xl border border-[#F5E4E4] bg-white px-3 pt-9 pb-12 sm:px-4 shadow-[inset_0_2px_12px_rgba(152,49,50,0.05)]">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#FFF0E8] border border-[#F5E4E4] border-t-0 px-5 py-1 rounded-b-xl text-[9px] font-extrabold tracking-[2px] text-[#983132]">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#FFF0E8] border border-[#F5E4E4] border-t-0 px-5 py-1 rounded-b-xl text-[11px] font-extrabold tracking-[2px] text-[#983132]">
             DOOR
           </div>
           <div className={`flex justify-center ${large ? 'gap-3 sm:gap-3.5' : 'gap-2 sm:gap-2.5'}`}>
@@ -197,7 +204,7 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
           </div>
           <div className="absolute bottom-0 left-0 right-0 flex justify-around pointer-events-none">
             {['TOILET-1', 'TOILET-2'].map((t) => (
-              <div key={t} className="bg-[#FFF0E8] border border-[#F5E4E4] border-b-0 px-5 py-1 rounded-t-xl text-[9px] font-extrabold tracking-[2px] text-[#983132]/70">
+              <div key={t} className="bg-[#FFF0E8] border border-[#F5E4E4] border-b-0 px-5 py-1 rounded-t-xl text-[11px] font-extrabold tracking-[2px] text-[#983132]/70">
                 {t}
               </div>
             ))}
@@ -221,7 +228,7 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
       )}
 
       {/* Selection status */}
-      <div className="mt-3 min-h-[20px] text-[12px]">
+      <div className="mt-3 min-h-[20px] text-[13px]">
         {floorSeats.length === 0 ? (
           <p className="text-[#201E1F]/45">No seats on this floor yet.</p>
         ) : selectedSeat ? (

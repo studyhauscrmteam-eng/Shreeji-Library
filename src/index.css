@@ -98,3 +98,53 @@ html {
 .animate-marquee:focus-within {
   animation-play-state: paused !important;
 }
+
+/* Seat popup scrollbar */
+.seat-popup-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d55959 #e7e7e7;
+}
+
+.seat-popup-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.seat-popup-scroll::-webkit-scrollbar-track {
+  border-radius: 8px;
+  background-color: #e7e7e7;
+  border: 1px solid #cacaca;
+}
+
+.seat-popup-scroll::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background-color: #d55959;
+}
+
+.seat-popup-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #b94545;
+}
+
+/* Membership plan dropdown scrollbar — thin so left/right padding stays equal */
+.plan-dropdown-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d55959 #f3e8e8;
+  scrollbar-gutter: stable;
+}
+
+.plan-dropdown-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.plan-dropdown-scroll::-webkit-scrollbar-track {
+  border-radius: 8px;
+  background-color: transparent;
+}
+
+.plan-dropdown-scroll::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background-color: #d55959;
+}
+
+.plan-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #b94545;
+}

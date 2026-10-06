@@ -422,13 +422,16 @@ export default function BookingForm({ selectedPlan }) {
 
                 <AnimatePresence>
                   {planDropdownOpen && (
-                    <motion.ul
+                    <motion.div
                       initial={{ opacity: 0, y: -8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.98 }}
                       transition={{ duration: 0.18 }}
+                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden"
+                    >
+                    <ul
                       role="listbox"
-                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden p-1.5 max-h-72 overflow-y-auto overscroll-contain"
+                      className="p-1.5 max-h-72 overflow-y-auto overscroll-contain plan-dropdown-scroll"
                     >
                       {plans.map((p) => {
                         const isSelected = p.id === formData.planId;
@@ -466,7 +469,8 @@ export default function BookingForm({ selectedPlan }) {
                           </li>
                         );
                       })}
-                    </motion.ul>
+                    </ul>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -539,7 +543,7 @@ export default function BookingForm({ selectedPlan }) {
                 className="w-full sm:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden rounded-3xl border border-[#F5E4E4] bg-[#FFF8F5] text-[#201E1F] shadow-2xl"
               >
 
-              <div className="px-4 sm:px-6 pb-2 pt-4 flex-1 min-h-0 overflow-y-auto bg-[#FFF8F5]">
+              <div className="px-4 sm:px-6 pb-2 pt-4 flex-1 min-h-0 overflow-y-auto bg-[#FFF8F5] seat-popup-scroll">
                 {seatsLoading ? (
                   <div className="animate-pulse space-y-2 py-4">
                     <div className="h-8 bg-[#F5E4E4] rounded-full w-48" />
