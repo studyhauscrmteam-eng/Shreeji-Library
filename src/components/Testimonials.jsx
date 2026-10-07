@@ -20,7 +20,7 @@ export default function Testimonials() {
       name: 'કાવ્યા શાહ',
       exam: 'CA ફાઇનલ ટોપ સ્કોરર',
       initials: 'KS',
-      bgColor: 'bg-[#EB6A30]',
+      bgColor: 'bg-[#B94E18]',
       text: 'અહીંના એકોસ્ટિક ક્યુબિકલ્સ અદ્ભુત છે. શૂન્ય અવાજ, આંખોને આરામદાયક LED લાઇટ, લેક્ચર્સ માટે ફાસ્ટ વાઇ-ફાઇ અને સુરક્ષિત લોકર. અભ્યાસ માટે સર્વશ્રેષ્ઠ જગ્યા!',
       stars: 5
     },
@@ -44,7 +44,7 @@ export default function Testimonials() {
       name: 'રોહિત પટેલ',
       exam: 'JEE એડવાન્સ્ડ રેન્ક 512',
       initials: 'RP',
-      bgColor: 'bg-[#EB6A30]',
+      bgColor: 'bg-[#B94E18]',
       text: 'દરેક ડેસ્ક પર હાઇ સ્પીડ વાઇ-ફાઇ અને પાવર સોકેટ હોવાથી રોજના ૧૨ કલાક સુધી ઓનલાઇન લેક્ચર્સ અને ટેસ્ટ સીરીઝ સોલ્વ કરી શક્યો.',
       stars: 5
     },
@@ -69,7 +69,7 @@ export default function Testimonials() {
       name: 'Kavya Shah',
       exam: 'CA Final Top Scorer',
       initials: 'KS',
-      bgColor: 'bg-[#EB6A30]',
+      bgColor: 'bg-[#B94E18]',
       text: 'The acoustic cubicles are incredible. Absolutely zero noise, dimmable desk lamp, fast dual fiber Wi-Fi for video lectures, and safe locker. Best reading space by far!',
       stars: 5
     },
@@ -93,7 +93,7 @@ export default function Testimonials() {
       name: 'Rohit Patel',
       exam: 'JEE Advanced Rank 512',
       initials: 'RP',
-      bgColor: 'bg-[#EB6A30]',
+      bgColor: 'bg-[#B94E18]',
       text: 'Super high speed dual fiber Wi-Fi and power sockets at every desk. Solved physics problems for 12 hours straight every single day.',
       stars: 5
     },
@@ -173,10 +173,10 @@ export default function Testimonials() {
                   {review.initials}
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#201E1F] flex items-center gap-1">
+                  <h3 className="font-bold text-sm text-[#201E1F] flex items-center gap-1">
                     <span>{review.name}</span>
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
-                  </h4>
+                  </h3>
                   <p className="text-xs text-[#983132] font-semibold">{review.exam}</p>
                 </div>
               </div>

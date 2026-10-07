@@ -56,7 +56,7 @@ export default function LocationContact() {
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-[#201E1F] text-base">{t('contact.addressLabel')}</h4>
+                  <h3 className="font-bold text-[#201E1F] text-base">{t('contact.addressLabel')}</h3>
                   <p className="text-sm text-[#201E1F]/80 mt-1">
                     {t('contact.addressVal')}
                   </p>
@@ -87,7 +87,7 @@ export default function LocationContact() {
                   <Phone className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-[#201E1F] text-base">{t('contact.phoneLabel')}</h4>
+                  <h3 className="font-bold text-[#201E1F] text-base">{t('contact.phoneLabel')}</h3>
                   <p className="text-lg font-bold text-[#983132] mt-0.5">
                     {t('contact.phoneVal')}
                   </p>
@@ -115,7 +115,7 @@ export default function LocationContact() {
                   <Mail className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold text-[#201E1F] text-base">{t('contact.emailLabel')}</h4>
+                  <h3 className="font-bold text-[#201E1F] text-base">{t('contact.emailLabel')}</h3>
                   <p className="text-sm font-semibold text-[#EB6A30] mt-0.5">
                     {t('contact.emailVal')}
                   </p>
@@ -143,7 +143,7 @@ export default function LocationContact() {
                   <Clock className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-[#201E1F] text-base">{t('contact.timingLabel')}</h4>
+                  <h3 className="font-bold text-[#201E1F] text-base">{t('contact.timingLabel')}</h3>
                   <p className="text-sm text-[#201E1F]/80 mt-1">
                     {t('contact.timingVal')}
                   </p>

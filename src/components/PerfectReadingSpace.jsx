@@ -101,8 +101,12 @@ export default function PerfectReadingSpace() {
               
               {/* Main Photo */}
               <img 
-                src="/WhatsApp Image 2026-08-16 at 12.58.48 PM (1).jpeg" 
-                alt="ShreeJi Reading Library Cubicle Setup" 
+                src="/single-study-cubicle-led.webp" 
+                alt="Single wooden study cubicle with LED task light and power socket at ShreeJi Library, Bhavnagar" 
+                loading="lazy"
+                decoding="async"
+                width="1125"
+                height="1398"
                 className="w-full h-[420px] sm:h-[550px] lg:h-[620px] object-cover"
               />
 

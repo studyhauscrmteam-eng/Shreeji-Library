@@ -33,119 +33,119 @@ export default function Features() {
     { 
       icon: Snowflake, 
       title: isGu ? 'સંપૂર્ણ એર કંડિશન્ડ' : 'Fully Air Conditioned',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.47 PM.jpeg',
+      image: '/mitsubishi-ac-cooling.webp',
       descEn: 'Mitsubishi Heavy Duty Jetflow AC maintains a constant 24°C temperature with zero humidity.',
       descGu: 'મિત્સુબિશી હેવી ડ્યુટી જેટફ્લો AC ૨૪°C તાપમાન સાથે ભેજરહિત અને અવાજરહિત ઠંડક આપે છે.'
     },
     { 
       icon: Armchair, 
       title: isGu ? 'આરામદાયક અર્ગોનોમિક ખુરશી' : 'Ergonomic Chairs',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.49 PM.jpeg',
+      image: '/study-atmosphere-lighting.webp',
       descEn: 'Adjustable high-density lumbar support chairs engineered for 10–14 hours of continuous study.',
       descGu: 'કમરના ટેકા સાથે ૧૦ થી ૧૪ કલાક સળંગ આરામથી બેસી શકાય તેવી અર્ગોનોમિક ઓફિસ ચેર.'
     },
     { 
       icon: Grid, 
       title: isGu ? 'વિશાળ સ્ટડી ડેસ્ક' : 'Spacious Study Tables',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.48 PM (2).jpeg',
+      image: '/study-cubicles-maps.webp',
       descEn: 'Partitioned wooden study desks with dedicated book racks, top shelves and study maps.',
       descGu: 'પુસ્તકો, નોટ્સ અને નકશા રાખવા માટે ઉપરના શેલ્ફ સાથેનું મોટું લાકડાનું ક્યુબિકલ ટેબલ.'
     },
     { 
       icon: Wifi, 
       title: isGu ? 'હાઇ-સ્પીડ ફાઇબર વાઇ-ફાઇ' : 'High-Speed Wi-Fi',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.50 PM.jpeg',
+      image: '/wifi-zone-power-outlets.webp',
       descEn: 'Dual high-speed optical fiber network across all desks for video lectures and test series.',
       descGu: 'ઓનલાઇન વિડીયો લેક્ચર્સ અને મોક ટેસ્ટ માટે અવિરત સુપરફાસ્ટ ઓપ્ટિકલ ફાઇબર વાઇ-ફાઇ.'
     },
     { 
       icon: Plug, 
       title: isGu ? 'સ્વતંત્ર ચાર્જિંગ પોઇન્ટ્સ' : 'Individual Charging Points',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.50 PM.jpeg',
+      image: '/wifi-zone-power-outlets.webp',
       descEn: 'Dedicated 230V socket & switchboard at every single study desk for laptop and tablet charging.',
       descGu: 'લેપટોપ, ટેબ્લેટ અને મોબાઇલ ચાર્જિંગ માટે દરેક ડેસ્ક પર સ્વતંત્ર 230V પાવર સ્વિચબોર્ડ.'
     },
     { 
       icon: VolumeX, 
       title: isGu ? 'સંપૂર્ણ સાયલન્ટ વાતાવરણ' : 'Silent Study Environment',
-      image: '/hero-study-hall.jpg',
+      image: '/hero-study-hall.webp',
       descEn: 'Strict pin-drop silence policy inside the central reading hall with zero interruptions.',
       descGu: 'અભ્યાસના તમામ કલાકો દરમિયાન સંપૂર્ણ પિન-ડ્રોપ શાંતિના નિયમનું ચુસ્ત પાલન.'
     },
     { 
       icon: ShieldCheck, 
       title: isGu ? '૨૪×૭ CCTV કેમેરા સુરક્ષા' : '24×7 CCTV Security',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.51 PM (1).jpeg',
+      image: '/library-main-entrance.webp',
       descEn: 'Comprehensive 24x7 HD camera surveillance ensuring the safety of your laptop, books, and bags.',
       descGu: 'તમારા પુસ્તકો, લેપટોપ અને સામાનની સલામતી માટે ૨૪ કલાક હાઇ-ડેફિનેશન CCTV કેમેરા સર્વેલન્સ.'
     },
     { 
       icon: Droplets, 
       title: isGu ? 'શુદ્ધ ઠંડુ RO પીવાનું પાણી' : 'Purified Drinking Water',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.50 PM (2).jpeg',
+      image: '/terrace-refreshment-lounge.webp',
       descEn: 'Filtered chilled and room-temperature RO drinking water available 24/7 with open tea break lounge.',
       descGu: 'ચોવીસેય કલાક શુદ્ધ, ફિલ્ટર કરેલ ઠંડુ અને નોર્મલ RO પીવાનું પાણી ઉપલબ્ધ.'
     },
     { 
       icon: Sparkles, 
       title: isGu ? 'સ્વચ્છ અને હાઇજેનિક વૉશરૂમ' : 'Clean Washrooms',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.50 PM (2).jpeg',
+      image: '/terrace-refreshment-lounge.webp',
       descEn: 'Spotless, regularly sanitized and well-ventilated washrooms maintained daily.',
       descGu: 'નિયમિતપણે સેનિટાઇઝ થતા અને એકદમ સ્વચ્છ હાઇજેનિક વૉશરૂમ્સ.'
     },
     { 
       icon: RefreshCw, 
       title: isGu ? 'રોજિંદી સાફ-સફાઈ' : 'Daily Cleaning',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.49 PM (1).jpeg',
+      image: '/study-hall-aisle.webp',
       descEn: 'Dedicated housekeeping staff ensuring dust-free desks, clean floors, and fresh atmosphere.',
       descGu: 'ડેસ્ક અને ફ્લોરિંગની રોજેરોજ સઘન સાફ-સફાઈ જેથી વાતાવરણ હંમેશા તાજગીસભર રહે.'
     },
     { 
       icon: Zap, 
       title: isGu ? '૧૦૦% પાવર બેકઅપ' : 'Power Backup',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.47 PM.jpeg',
+      image: '/mitsubishi-ac-cooling.webp',
       descEn: 'Instant generator and inverter backup so your study flow and AC cooling never get interrupted.',
       descGu: 'વીજળી જાય ત્યારે તાત્કાલિક જનરેટર અને ઇન્વર્ટર બેકઅપથી અભ્યાસ અટકતો નથી.'
     },
     { 
       icon: Sun, 
       title: isGu ? 'કુદરતી રોશની અને વેન્ટિલેશન' : 'Natural Lighting',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.50 PM (2).jpeg',
+      image: '/terrace-refreshment-lounge.webp',
       descEn: 'Spacious open terrace providing natural sunlight and fresh air for relaxing study breaks.',
       descGu: 'અભ્યાસના વિરામ દરમિયાન તાજી હવા અને કુદરતી રોશની માટે સુંદર ઓપન ટેરેસ.'
     },
     { 
       icon: Clock, 
       title: isGu ? 'અનુકૂળ સમયપત્રક' : 'Flexible Timings',
-      image: '/hero-study-hall.jpg',
+      image: '/hero-study-hall.webp',
       descEn: 'Open 17 hours daily (06:00 AM – 11:00 PM), 365 days a year including Sundays & holidays.',
       descGu: 'રવિવાર અને જાહેર રજાઓ સહિત દરરોજ સવારે ૦૬:૦૦ થી રાત્રે ૧૧:૦૦ સુધી ખુલ્લી રહે છે.'
     },
     { 
       icon: Wallet, 
       title: isGu ? 'કિફાયતી માસિક ફી' : 'Affordable Membership',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.48 PM (2).jpeg',
+      image: '/study-cubicles-maps.webp',
       descEn: 'Simple, transparent monthly pricing starting from ₹700 with zero hidden charges.',
       descGu: 'કોઈપણ છુપા એડમિશન ચાર્જ વગર માત્ર ₹૭૦૦ થી શરૂ થતી કિફાયતી માસિક ફી.'
     },
     { 
       icon: Heart, 
       title: isGu ? 'વિદ્યાર્થી-મૈત્રીપૂર્ણ સંચાલન' : 'Friendly Management',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.51 PM (2).jpeg',
+      image: '/reception-guidance-area.webp',
       descEn: 'Helpful and supportive library coordinators always available to assist students.',
       descGu: 'વિદ્યાર્થીઓની કોઈપણ મુશ્કેલી કે પ્રશ્નમાં તુરંત મદદરૂપ થતું સહાયક સંચાલન.'
     },
     { 
       icon: Lock, 
       title: isGu ? 'સુરક્ષિત લોકર સુવિધા' : 'Personal Secure Lockers',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.49 PM (2).jpeg',
+      image: '/study-desks-overhead-shelf.webp',
       descEn: 'Personal lockers and top shelves to securely keep your heavy books and notes overnight.',
       descGu: 'તમારા સંદર્ભ પુસ્તકો અને સાહિત્ય રાત્રે સુરક્ષિત રાખવા માટે વ્યક્તિગત લોકર્સ.'
     },
     { 
       icon: Car, 
       title: isGu ? 'ટૂ-વ્હીલર પાર્કિંગ સુવિધા' : 'Parking Facility',
-      image: '/WhatsApp Image 2026-08-16 at 12.58.51 PM (1).jpeg',
+      image: '/library-main-entrance.webp',
       descEn: 'Dedicated, secure two-wheeler parking space directly outside the library building.',
       descGu: 'લાઇબ્રેરી બિલ્ડિંગના ગ્રાઉન્ડ ફ્લોર પર વાહનો માટે સુરક્ષિત પાર્કિંગ વ્યવસ્થા.'
     }
@@ -214,9 +214,9 @@ export default function Features() {
                 <div className="w-10 h-10 rounded-xl bg-[#FFF0E8] text-[#983132] flex items-center justify-center mb-3 group-hover:bg-[#983132] group-hover:text-white transition-colors duration-300">
                   <IconComponent className="w-5 h-5" />
                 </div>
-                <h4 className="font-semibold text-xs sm:text-sm text-[#201E1F] leading-tight line-clamp-2">
+                <h3 className="font-semibold text-xs sm:text-sm text-[#201E1F] leading-tight line-clamp-2">
                   {feature.title}
-                </h4>
+                </h3>
                 <span className="text-[10px] text-[#EB6A30] font-bold mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   {isGu ? 'ફોટો જુઓ →' : 'View Photo →'}
                 </span>
@@ -258,7 +258,9 @@ export default function Features() {
               <div className="relative h-[280px] sm:h-[360px] bg-black w-full overflow-hidden">
                 <img
                   src={selectedFeature.image}
-                  alt={selectedFeature.title}
+                  alt={selectedFeature.title + ' at ShreeJi Reading Library, Bhavnagar'}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover object-center"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F] via-transparent to-black/20" />

@@ -34,7 +34,7 @@ export default function MembershipPricing({ onSelectPlan }) {
             <span className="font-serif italic text-[#EB6A30]">{t('pricing.headingHighlight')}</span>
           </h2>
 
-          <p className="mt-4 text-base sm:text-lg text-[#201E1F]/70 font-normal">
+          <p className="mt-4 text-base sm:text-lg text-[#201E1F]/85 font-normal">
             {t('pricing.subtitle')}
           </p>
         </motion.div>
@@ -102,7 +102,7 @@ export default function MembershipPricing({ onSelectPlan }) {
                 >
                   {/* Popular Badge */}
                   {plan.featured && (
-                    <div className="absolute -top-3.5 right-8 bg-[#EB6A30] text-white text-[11px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-md flex items-center gap-1.5">
+                    <div className="absolute -top-3.5 right-8 bg-[#B94E18] text-white text-[11px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-md flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>{badge}</span>
                     </div>
@@ -145,7 +145,7 @@ export default function MembershipPricing({ onSelectPlan }) {
                       onClick={() => onSelectPlan(plan.id)}
                       className={`w-full py-4 rounded-full font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 group shadow-sm hover:shadow-md ${
                         plan.featured
-                          ? 'bg-[#EB6A30] hover:bg-[#d5571e] text-white shadow-[#EB6A30]/20'
+                          ? 'bg-[#B94E18] hover:bg-[#9E4213] text-white shadow-[#B94E18]/20'
                           : 'bg-[#FFF8F5] hover:bg-[#983132] text-[#983132] hover:text-white border border-[#F5E4E4]'
                       }`}
                     >
@@ -162,7 +162,7 @@ export default function MembershipPricing({ onSelectPlan }) {
 
         {/* Security & Guarantee Note */}
         <div className="mt-12 flex items-center justify-center text-center">
-          <p className="text-xs sm:text-sm text-[#201E1F]/60 flex items-center justify-center gap-2 font-medium">
+          <p className="text-xs sm:text-sm text-[#201E1F]/85 flex items-center justify-center gap-2 font-medium">
             <ShieldCheck className="w-4 h-4 text-[#983132]" />
             <span>{t('pricing.seatGuarantee')}</span>
           </p>

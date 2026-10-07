@@ -22,6 +22,9 @@ dist/
 dist-ssr/
 *.local
 
+# Original unoptimized image backups (not deployed)
+original-images-backup/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -46,8 +46,12 @@ export default function Facilities() {
             >
               <div className="rounded-3xl overflow-hidden shadow-xl border border-[#F5E4E4] bg-white h-[380px] sm:h-[420px]">
                 <img
-                  src="/WhatsApp Image 2026-08-16 at 12.58.49 PM (3).jpeg"
-                  alt="Air-conditioned silent study hall"
+                  src="/main-study-hall-row.webp"
+                  alt="Air-conditioned silent study hall rows with numbered cubicles at ShreeJi Library, Bhavnagar"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="986"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -121,8 +125,12 @@ export default function Facilities() {
             >
               <div className="rounded-3xl overflow-hidden shadow-xl border border-[#F5E4E4] bg-white h-[380px] sm:h-[420px]">
                 <img
-                  src="/WhatsApp Image 2026-08-16 at 12.58.48 PM (2).jpeg"
-                  alt="Study cubicles with maps"
+                  src="/study-cubicles-maps.webp"
+                  alt="Individual study cubicles with India and Gujarat maps for UPSC and GPSC aspirants in Bhavnagar"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="945"
                   className="w-full h-full object-cover"
                 />
               </div>

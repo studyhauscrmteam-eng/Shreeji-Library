@@ -77,7 +77,7 @@ export default function AspirantsFocus() {
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-base text-[#201E1F]">{item.title}</h4>
+                <h3 className="font-bold text-base text-[#201E1F]">{item.title}</h3>
                 <p className="text-xs text-[#201E1F]/70 mt-1.5 leading-relaxed font-normal">{item.desc}</p>
               </div>
             </motion.div>

@@ -20,7 +20,7 @@ export const translations = {
     // Hero
     hero: {
       badge: 'Now accepting new student intake',
-      titleStart: 'Your perfect study environment for ',
+      titleStart: 'Bhavnagar\u2019s perfect study environment for ',
       titleHighlight: 'maximum focus.',
       subtitle: 'Escape distractions and study in a calm, air-conditioned, professionally managed reading space designed for serious students.',
       bookSeatBtn: 'Final Seat',
@@ -90,7 +90,7 @@ export const translations = {
     pricing: {
       badge: '03 — MEMBERSHIP PLANS',
       headingStart: 'Simple, transparent ',
-      headingHighlight: 'monthly plans.',
+      headingHighlight: 'monthly plans in Bhavnagar.',
       subtitle: 'Choose a study schedule that fits your routine. All plans include full amenities.',
       planFullDay: 'Full Day Plan',
       planFullDayDesc: 'Complete 17-hour access from early morning to night for dedicated preparation.',
@@ -200,7 +200,7 @@ export const translations = {
     // Location & Contact
     contact: {
       badge: '08 — FIND US',
-      headingStart: 'Convenient location, ',
+      headingStart: 'Convenient Bhavnagar location, ',
       headingHighlight: 'peaceful atmosphere.',
       subtitle: 'Centrally located with easy access via city bus, metro, and two-wheeler parking.',
       addressLabel: 'LIBRARY ADDRESS',
@@ -270,7 +270,7 @@ export const translations = {
     // Hero
     hero: {
       badge: 'નવા વિદ્યાર્થીઓ માટે એડમિશન શરૂ છે',
-      titleStart: 'સંપૂર્ણ એકાગ્રતા માટે તમારું ',
+      titleStart: 'ભાવનગરમાં સંપૂર્ણ એકાગ્રતા માટે તમારું ',
       titleHighlight: 'આદર્શ અભ્યાસ કેન્દ્ર.',
       subtitle: 'ઘરની ખલેલ અને અવાજથી દૂર, શાંત, સંપૂર્ણ એર-કંડિશન્ડ અને ગંભીર વિદ્યાર્થીઓ માટે ખાસ ડિઝાઇન કરાયેલ રીડિંગ લાઇબ્રેરી.',
       bookSeatBtn: 'સીટ બુક કરો',
@@ -521,6 +521,9 @@ export const LanguageProvider = ({ children }) => {
     } catch (e) {
       console.error(e);
     }
+    try {
+      document.documentElement.lang = lang === 'gu' ? 'gu' : 'en';
+    } catch {}
   };
 
   const t = (path) => {

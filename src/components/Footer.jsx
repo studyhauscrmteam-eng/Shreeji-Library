@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function Footer({ onOpenAdmin }) {
+export default function Footer() {
   const { language, t } = useLanguage();
   const isGu = language === 'gu';
 
@@ -15,13 +15,15 @@ export default function Footer({ onOpenAdmin }) {
           <div className="lg:col-span-2 space-y-4">
             <div className="h-12 flex items-center">
               <img 
-                src="/assets/logo.jpg" 
-                alt="ShreeJi Reading Library" 
+                src="/assets/logo.webp" 
+                alt="ShreeJi Reading Library logo — silent study hall in Bhavnagar" 
+                width="256"
+                height="143"
                 className="h-11 w-auto object-contain rounded-md"
               />
             </div>
 
-            <p className="text-sm text-[#F5E4E4]/70 leading-relaxed max-w-sm">
+            <p className="text-sm text-[#F5E4E4]/85 leading-relaxed max-w-sm">
               {t('footer.tagline')}
             </p>
 
@@ -32,10 +34,10 @@ export default function Footer({ onOpenAdmin }) {
 
           {/* Quick Links */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
               {isGu ? 'ઝડપી લિંક્સ' : 'NAVIGATION'}
-            </h4>
-            <ul className="space-y-2 text-sm text-[#F5E4E4]/80 font-medium">
+            </h3>
+            <ul className="space-y-2 text-sm text-[#F5E4E4]/85 font-medium">
               <li><a href="#about" className="hover:text-[#EB6A30] transition-colors">{t('nav.about')}</a></li>
               <li><a href="#features" className="hover:text-[#EB6A30] transition-colors">{t('nav.whyUs')}</a></li>
               <li><a href="#reading-space" className="hover:text-[#EB6A30] transition-colors">{t('nav.cubicle')}</a></li>
@@ -48,10 +50,10 @@ export default function Footer({ onOpenAdmin }) {
 
           {/* Target Aspirants */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
               {isGu ? 'પરીક્ષાઓ' : 'TARGET EXAMS'}
-            </h4>
-            <ul className="space-y-2 text-sm text-[#F5E4E4]/80 font-medium">
+            </h3>
+            <ul className="space-y-2 text-sm text-[#F5E4E4]/85 font-medium">
               <li><a href="#about" className="hover:text-[#EB6A30] transition-colors">UPSC / GPSC Class 1-2</a></li>
               <li><a href="#about" className="hover:text-[#EB6A30] transition-colors">CA / CS / CMA</a></li>
               <li><a href="#about" className="hover:text-[#EB6A30] transition-colors">NEET & JEE Top Rankers</a></li>
@@ -62,15 +64,15 @@ export default function Footer({ onOpenAdmin }) {
 
           {/* Hours & Contact */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#EB6A30]">
               {isGu ? 'લાઇબ્રેરીનો સમય' : 'LIBRARY HOURS'}
-            </h4>
-            <div className="text-sm text-[#F5E4E4]/80 space-y-1">
+            </h3>
+            <div className="text-sm text-[#F5E4E4]/85 space-y-1">
               <p className="font-semibold text-white">{isGu ? 'સોમવાર – રવિવાર (સાતેય દિવસ)' : 'Mon – Sun (7 Days)'}</p>
               <p className="text-[#983132] font-bold bg-[#F5E4E4] px-3 py-1 rounded-full inline-block text-xs">
                 24/7 Open · 24 Hours Daily
               </p>
-              <p className="pt-2 text-xs text-[#F5E4E4]/70">
+              <p className="pt-2 text-xs text-[#F5E4E4]/85">
                 {isGu ? 'સંપર્ક નંબર:' : 'Contact:'} <a href="tel:+916353321530" className="text-white font-bold hover:text-[#EB6A30]">+91 63533 21530</a>
               </p>
               <p className="pt-1.5 text-xs">
@@ -88,21 +90,20 @@ export default function Footer({ onOpenAdmin }) {
 
         </div>
 
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#F5E4E4]/50 gap-4">
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#F5E4E4]/80 gap-4">
           <p>{t('footer.copyright')}</p>
-          <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
             <span>Air Conditioned</span>
             <span>•</span>
             <span>Silent Study Desks</span>
             <span>•</span>
-            {onOpenAdmin && (
-              <button
-                onClick={onOpenAdmin}
-                className="text-[#EB6A30] hover:text-white transition-colors underline font-semibold"
-              >
-                {isGu ? 'સોફ્ટવેર એડમિન' : 'Staff Admin'}
-              </button>
-            )}
+            <a href="/privacy.html" className="hover:text-white transition-colors underline">
+              {isGu ? 'પ્રાઇવસી પોલિસી' : 'Privacy Policy'}
+            </a>
+            <span>•</span>
+            <a href="/terms.html" className="hover:text-white transition-colors underline">
+              {isGu ? 'નિયમો અને શરતો' : 'Terms & Conditions'}
+            </a>
           </div>
         </div>
 

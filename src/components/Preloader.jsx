@@ -9,7 +9,7 @@ export default function Preloader() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2400);
+    }, 1600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -206,8 +206,10 @@ export default function Preloader() {
               className="w-14 h-14 rounded-xl bg-white p-1.5 shadow-sm border border-[#F5E4E4] flex items-center justify-center mb-3"
             >
               <img 
-                src="/assets/logo.jpg" 
-                alt="ShreeJi Reading Library Logo" 
+                src="/assets/logo.webp" 
+                alt="ShreeJi Reading Library logo — silent study hall in Bhavnagar" 
+                width="256"
+                height="143"
                 className="w-full h-full object-contain mix-blend-multiply"
               />
             </motion.div>

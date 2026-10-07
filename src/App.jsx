@@ -18,11 +18,10 @@ import LocationContact from './components/LocationContact';
 import BookingForm from './components/BookingForm';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
-import AdminModal from './components/AdminModal';
+import CookieConsent from './components/CookieConsent';
 
 function MainApp() {
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   const scrollToBooking = () => {
     const el = document.getElementById('booking') || document.getElementById('contact');
@@ -38,7 +37,15 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-white text-[#201E1F] selection:bg-[#EB6A30] selection:text-white relative overflow-x-hidden max-w-full w-full">
-      
+
+      {/* Skip to main content (keyboard / screen-reader only, visible on focus) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-white focus:text-[#983132] focus:px-4 focus:py-2 focus:rounded-full focus:font-bold focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       {/* Preloader Animation */}
       <Preloader />
 
@@ -47,6 +54,7 @@ function MainApp() {
         onOpenBooking={scrollToBooking} 
       />
 
+      <main id="main-content">
       {/* Hero Section */}
       <Hero onOpenBooking={scrollToBooking} />
 
@@ -89,20 +97,16 @@ function MainApp() {
       <BookingForm 
         selectedPlan={selectedPlan} 
       />
+      </main>
 
       {/* Footer */}
-      <Footer 
-        onOpenAdmin={() => setIsAdminOpen(true)} 
-      />
+      <Footer />
 
       {/* Floating Go To Top Button */}
       <ScrollToTop />
 
-      {/* Software Admin & Plan Benefits Manager Modal */}
-      <AdminModal 
-        isOpen={isAdminOpen} 
-        onClose={() => setIsAdminOpen(false)} 
-      />
+      {/* Cookie Consent Banner */}
+      <CookieConsent />
 
     </div>
   );

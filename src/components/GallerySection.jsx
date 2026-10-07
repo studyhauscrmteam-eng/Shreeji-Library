@@ -6,7 +6,9 @@ import { useLanguage } from '../context/LanguageContext';
 export const allGalleryPhotos = [
   {
     id: 1,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.51 PM (1).jpeg',
+    src: '/library-main-entrance.webp',
+    width: 1086,
+    height: 1448,
     titleEn: 'Library Main Entrance Door',
     titleGu: 'લાઇબ્રેરી મુખ્ય પ્રવેશ દ્વાર',
     descEn: 'Welcoming entrance with ShreeJi logo, Bhagat Singh & Swami Vivekananda inspirational posters',
@@ -15,7 +17,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 2,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.48 PM (2).jpeg',
+    src: '/study-cubicles-maps.webp',
+    width: 1280,
+    height: 945,
     titleEn: 'Study Cubicles with Maps (#17 - #19)',
     titleGu: 'નકશા સાથે સ્ટડી ક્યુબિકલ્સ (#૧૭ - #૧૯)',
     descEn: 'Assigned cubicles equipped with India & Gujarat maps for UPSC, GPSC & competitive aspirants',
@@ -24,7 +28,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 3,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.47 PM.jpeg',
+    src: '/mitsubishi-ac-cooling.webp',
+    width: 1280,
+    height: 964,
     titleEn: 'Mitsubishi Heavy Duty Jetflow AC',
     titleGu: 'મિત્સુબિશી હેવી ડ્યુટી જેટફ્લો AC',
     descEn: 'High-capacity 24°C climate-controlled air conditioning providing zero humidity comfort',
@@ -33,7 +39,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 4,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.50 PM (1).jpeg',
+    src: '/acoustic-wall-panels.webp',
+    width: 1280,
+    height: 960,
     titleEn: 'Soundproof Acoustic Wall Panels (#65)',
     titleGu: 'સાઉન્ડપ્રૂફ એકોસ્ટિક વોલ પેનલ્સ (#૬૫)',
     descEn: 'Special sound-dampening foam panels engineered for pin-drop silence and high focus',
@@ -42,7 +50,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 5,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.50 PM (2).jpeg',
+    src: '/terrace-refreshment-lounge.webp',
+    width: 1280,
+    height: 1024,
     titleEn: 'Open Air Terrace Refreshment Lounge',
     titleGu: 'ઓપન ટેરેસ રિફ્રેશમેન્ટ લાઉન્જ',
     descEn: 'Spacious open terrace for study breaks, tea/coffee, snacks, and fresh air relaxation',
@@ -51,7 +61,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 6,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.49 PM (3).jpeg',
+    src: '/main-study-hall-row.webp',
+    width: 1280,
+    height: 986,
     titleEn: 'Main Study Hall Row #1 to #33',
     titleGu: 'મુખ્ય સ્ટડી હોલ રો #૧ થી #૩૩',
     descEn: 'Spacious central aisle with individual numbered cubicles, ceiling fans, and bright lighting',
@@ -60,7 +72,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 7,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.48 PM.jpeg',
+    src: '/central-study-hall-students.webp',
+    width: 1280,
+    height: 964,
     titleEn: 'Central Study Hall with Hardworking Students',
     titleGu: 'વિદ્યાર્થીઓ સાથે સેન્ટ્રલ રીડિંગ હોલ',
     descEn: 'Inspiring study environment where serious aspirants prepare together with peak discipline',
@@ -69,7 +83,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 8,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.48 PM (1).jpeg',
+    src: '/single-study-cubicle-led.webp',
+    width: 1125,
+    height: 1398,
     titleEn: 'Single Study Cubicle with LED Task Light',
     titleGu: 'LED ટાસ્ક લાઇટ સાથે સિંગલ ક્યુબિકલ',
     descEn: 'Individual wooden desk with warm LED lamp, power socket, and ergonomic chair (#42)',
@@ -78,7 +94,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 9,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.49 PM (1).jpeg',
+    src: '/study-hall-aisle.webp',
+    width: 1280,
+    height: 960,
     titleEn: 'Wide Study Hall Aisle & Clean Passageway',
     titleGu: 'પહોળો સ્ટડી હોલ પેસેજ',
     descEn: 'Clean, well-maintained passage ensuring students move freely without disturbance',
@@ -87,7 +105,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 10,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.49 PM (2).jpeg',
+    src: '/study-desks-overhead-shelf.webp',
+    width: 1086,
+    height: 1448,
     titleEn: 'Personal Study Desks with Overhead Shelf',
     titleGu: 'ઓવરહેડ શેલ્ફ સાથે પર્સનલ સ્ટડી ડેસ્ક',
     descEn: 'Heavy wooden shelves designed to store multiple bulky textbooks and study notes',
@@ -96,7 +116,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 11,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.49 PM.jpeg',
+    src: '/study-atmosphere-lighting.webp',
+    width: 1086,
+    height: 1448,
     titleEn: 'Study Atmosphere & Ambient Lighting',
     titleGu: 'શાંત અભ્યાસ વાતાવરણ અને લાઇટિંગ',
     descEn: 'Balanced non-glare illumination designed for late-night and marathon study sessions',
@@ -105,7 +127,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 12,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.50 PM.jpeg',
+    src: '/wifi-zone-power-outlets.webp',
+    width: 1086,
+    height: 1448,
     titleEn: 'High-speed Wi-Fi Zone & Power Outlets',
     titleGu: 'હાઇ-સ્પીડ વાઇ-ફાઇ ઝોન અને પાવર આઉટલેટ્સ',
     descEn: 'Dedicated plug points at every single cubicle for uninterrupted digital learning',
@@ -114,7 +138,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 13,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.51 PM (2).jpeg',
+    src: '/reception-guidance-area.webp',
+    width: 1280,
+    height: 987,
     titleEn: 'Reception & Student Guidance Area',
     titleGu: 'રિસેપ્શન અને સ્ટુડન્ટ ગાઇડન્સ એરિયા',
     descEn: 'Help desk for new admissions, seat reservations, and student inquiries',
@@ -123,7 +149,9 @@ export const allGalleryPhotos = [
   },
   {
     id: 14,
-    src: '/WhatsApp Image 2026-08-16 at 12.58.51 PM.jpeg',
+    src: '/quiet-study-area.webp',
+    width: 1280,
+    height: 960,
     titleEn: 'Dedicated Quiet Study Area',
     titleGu: 'શાંત અભ્યાસ વિસ્તાર',
     descEn: 'Peaceful corner desks built for zero distraction revision and mock tests',
@@ -223,7 +251,7 @@ export default function GallerySection({ onOpenBooking }) {
                 openSlideshow(0);
                 setIsPlaying(true);
               }}
-              className="bg-[#FFF0E8] hover:bg-[#ffe5d6] text-[#EB6A30] font-semibold text-sm px-5 py-3 rounded-full transition-all flex items-center gap-2 border border-[#EB6A30]/30 shadow-sm"
+              className="bg-[#FFF0E8] hover:bg-[#ffe5d6] text-[#A84815] font-semibold text-sm px-5 py-3 rounded-full transition-all flex items-center gap-2 border border-[#EB6A30]/30 shadow-sm"
             >
               <Play className="w-4 h-4 fill-[#EB6A30]" />
               <span>{t('gallery.startSlideshow')}</span>
@@ -254,8 +282,12 @@ export default function GallerySection({ onOpenBooking }) {
             >
               <img
                 src={allGalleryPhotos[0].src}
-                alt={isGu ? allGalleryPhotos[0].titleGu : allGalleryPhotos[0].titleEn}
+                alt={(isGu ? allGalleryPhotos[0].titleGu : allGalleryPhotos[0].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                width="1086"
+                height="1448"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6 text-white">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#EB6A30] mb-1">
@@ -287,7 +319,11 @@ export default function GallerySection({ onOpenBooking }) {
               >
                 <img
                   src={allGalleryPhotos[1].src}
-                  alt={isGu ? allGalleryPhotos[1].titleGu : allGalleryPhotos[1].titleEn}
+                  alt={(isGu ? allGalleryPhotos[1].titleGu : allGalleryPhotos[1].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                  width="1280"
+                  height="945"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white">
@@ -315,7 +351,11 @@ export default function GallerySection({ onOpenBooking }) {
               >
                 <img
                   src={allGalleryPhotos[2].src}
-                  alt={isGu ? allGalleryPhotos[2].titleGu : allGalleryPhotos[2].titleEn}
+                  alt={(isGu ? allGalleryPhotos[2].titleGu : allGalleryPhotos[2].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                  width="1280"
+                  height="964"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white">
@@ -346,7 +386,11 @@ export default function GallerySection({ onOpenBooking }) {
               >
                 <img
                   src={allGalleryPhotos[3].src}
-                  alt={isGu ? allGalleryPhotos[3].titleGu : allGalleryPhotos[3].titleEn}
+                  alt={(isGu ? allGalleryPhotos[3].titleGu : allGalleryPhotos[3].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                  width="1280"
+                  height="960"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white">
@@ -374,7 +418,11 @@ export default function GallerySection({ onOpenBooking }) {
               >
                 <img
                   src={allGalleryPhotos[4].src}
-                  alt={isGu ? allGalleryPhotos[4].titleGu : allGalleryPhotos[4].titleEn}
+                  alt={(isGu ? allGalleryPhotos[4].titleGu : allGalleryPhotos[4].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                  width="1280"
+                  height="1024"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white">
@@ -403,8 +451,12 @@ export default function GallerySection({ onOpenBooking }) {
             >
               <img
                 src={allGalleryPhotos[5].src}
-                alt={isGu ? allGalleryPhotos[5].titleGu : allGalleryPhotos[5].titleEn}
+                alt={(isGu ? allGalleryPhotos[5].titleGu : allGalleryPhotos[5].titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                width="1280"
+                height="986"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6 text-white">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#EB6A30] mb-1">
@@ -449,8 +501,11 @@ export default function GallerySection({ onOpenBooking }) {
                 >
                   <img
                     src={photo.src}
-                    alt={title}
+                    alt={title + ' at ShreeJi Reading Library, Bhavnagar'}
+                    width={photo.width}
+                    height={photo.height}
                     loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/90 via-[#201E1F]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5 text-white">
@@ -484,7 +539,7 @@ export default function GallerySection({ onOpenBooking }) {
               <p className="text-sm font-bold text-[#201E1F]">
                 {isGu ? '૧૪ વાસ્તવિક હાઇ-ક્વોલિટી ફોટા ઉપલબ્ધ છે' : '14 Authentic High-Quality Library Photos Available'}
               </p>
-              <p className="text-xs text-[#201E1F]/60">
+              <p className="text-xs text-[#201E1F]/85">
                 {isGu ? 'બધા ફોટા જોવા અથવા સ્લાઇડશો મોડ શરૂ કરવા માટે ક્લિક કરો' : 'Browse through all cubicles, AC halls, acoustic zones, and terrace lounge'}
               </p>
             </div>
@@ -573,7 +628,9 @@ export default function GallerySection({ onOpenBooking }) {
                   <motion.img
                     key={currentPhoto.id}
                     src={currentPhoto.src}
-                    alt={isGu ? currentPhoto.titleGu : currentPhoto.titleEn}
+                    alt={(isGu ? currentPhoto.titleGu : currentPhoto.titleEn) + ' at ShreeJi Reading Library, Bhavnagar'}
+                    width={currentPhoto.width}
+                    height={currentPhoto.height}
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.98 }}
@@ -617,7 +674,7 @@ export default function GallerySection({ onOpenBooking }) {
                         : 'border-white/20 opacity-50 hover:opacity-100'
                     }`}
                   >
-                    <img src={item.src} alt={item.titleEn} className="w-full h-full object-cover" />
+                    <img src={item.src} alt={isGu ? item.titleGu : item.titleEn} width={item.width} height={item.height} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>

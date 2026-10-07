@@ -44,8 +44,10 @@ export default function Navbar({ onOpenBooking }) {
                 : 'bg-white px-3.5 py-1.5 rounded-xl shadow-md border border-white/20'
             }`}>
               <img 
-                src="/assets/logo.jpg" 
-                alt="ShreeJi Reading Library" 
+                src="/assets/logo.webp" 
+                alt="ShreeJi Reading Library logo — silent study hall in Bhavnagar" 
+                width="256"
+                height="143"
                 className="h-10 sm:h-12 w-auto object-contain rounded-md"
               />
             </div>

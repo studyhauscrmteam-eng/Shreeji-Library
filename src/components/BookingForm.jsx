@@ -54,6 +54,30 @@ export default function BookingForm({ selectedPlan }) {
   const [seatsError, setSeatsError] = useState('');
   const [selectedSeat, setSelectedSeat] = useState(null); // { id, seatNumber } | null
   const [seatModalOpen, setSeatModalOpen] = useState(false);
+  // Defer Firebase (auth + seats subscription) until the booking section is
+  // near the viewport — keeps auth/Firestore off the initial page load.
+  const sectionRef = useRef(null);
+  const [bookingNear, setBookingNear] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setBookingNear(true);
+      return;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setBookingNear(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   // Freeze the background page scroll while the seat popup is open.
   // Both <html> and <body> are locked: the app root's overflow-x-hidden
@@ -77,8 +101,9 @@ export default function BookingForm({ selectedPlan }) {
   const plansBusy = plansLoading && plansEmpty;
 
   useEffect(() => {
-    // No subscription at all unless at least one plan allows selection —
-    // otherwise the seat feature doesn't exist in this form.
+    // No subscription at all until the section is near the viewport, or
+    // unless at least one plan allows selection.
+    if (!bookingNear) return;
     if (!plans.some((p) => p.seatPreference === true)) {
       setSeatsLoading(false);
       return;
@@ -104,7 +129,7 @@ export default function BookingForm({ selectedPlan }) {
       }
     );
     return unsub;
-  }, [plans]);
+  }, [plans, bookingNear]);
 
   // Default to the first plan once plans arrive.
   useEffect(() => {
@@ -258,7 +283,7 @@ export default function BookingForm({ selectedPlan }) {
   };
 
   return (
-    <section id="booking" className="py-24 bg-[#201E1F] text-white relative overflow-hidden">
+    <section id="booking" ref={sectionRef} className="py-24 bg-[#201E1F] text-white relative overflow-hidden">
 
       {/* Background Radial Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[500px] h-[350px] sm:h-[500px] bg-[#983132]/25 blur-[120px] pointer-events-none" />
@@ -586,7 +611,7 @@ export default function BookingForm({ selectedPlan }) {
                 <button
                   type="button"
                   onClick={() => setSeatModalOpen(false)}
-                  className="flex-1 py-3 rounded-full bg-[#EB6A30] hover:bg-[#d5571e] text-white text-sm font-bold transition-colors shadow-lg"
+                  className="flex-1 py-3 rounded-full bg-[#B94E18] hover:bg-[#9E4213] text-white text-sm font-bold transition-colors shadow-lg"
                 >
                   {selectedSeat
                     ? (isGu ? `સીટ ${selectedSeat.seatNumber} સાથે આગળ` : `Done · Seat ${selectedSeat.seatNumber}`)
@@ -621,7 +646,7 @@ export default function BookingForm({ selectedPlan }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 rounded-full bg-[#EB6A30] hover:bg-[#d5571e] text-white font-bold text-base transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group disabled:opacity-70"
+            className="w-full py-4 rounded-full bg-[#B94E18] hover:bg-[#9E4213] text-white font-bold text-base transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group disabled:opacity-70"
           >
             {loading ? (
               <>

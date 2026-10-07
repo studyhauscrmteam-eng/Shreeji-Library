@@ -12,8 +12,12 @@ export default function Hero({ onOpenBooking }) {
       {/* Real Library Homepage Background Image - Full Background Style */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/hero-study-hall.jpg" 
-          alt="ShreeJi Reading Library Study Hall" 
+          src="/hero-study-hall.webp" 
+          alt="Silent air-conditioned study hall with numbered cubicles at ShreeJi Reading Library, Bhavnagar" 
+          fetchpriority="high"
+          decoding="async"
+          width="1024"
+          height="767"
           className="w-full h-full object-cover object-center"
         />
         {/* Balanced Dark Gradient Overlay for Maximum Photo Visibility + Text Readability */}
@@ -67,7 +71,7 @@ export default function Hero({ onOpenBooking }) {
           >
             <button
               onClick={onOpenBooking}
-              className="bg-[#EB6A30] hover:bg-[#d5571e] text-white font-semibold text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 sm:gap-3 group"
+              className="bg-[#B94E18] hover:bg-[#9E4213] text-white font-semibold text-sm sm:text-base px-6 sm:px-8 py-3.5 sm:py-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 sm:gap-3 group"
             >
               <span>{t('hero.bookSeatBtn')}</span>
               <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />

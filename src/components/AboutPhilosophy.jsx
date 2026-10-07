@@ -71,7 +71,7 @@ export default function AboutPhilosophy() {
                   <VolumeX className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#201E1F]">{t('about.point1Title')}</h4>
+                  <h3 className="font-bold text-sm text-[#201E1F]">{t('about.point1Title')}</h3>
                   <p className="text-xs text-[#201E1F]/70 mt-1">{t('about.point1Desc')}</p>
                 </div>
               </motion.div>
@@ -87,7 +87,7 @@ export default function AboutPhilosophy() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#201E1F]">{t('about.point2Title')}</h4>
+                  <h3 className="font-bold text-sm text-[#201E1F]">{t('about.point2Title')}</h3>
                   <p className="text-xs text-[#201E1F]/70 mt-1">{t('about.point2Desc')}</p>
                 </div>
               </motion.div>
@@ -103,7 +103,7 @@ export default function AboutPhilosophy() {
                   <Award className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#201E1F]">{t('about.point3Title')}</h4>
+                  <h3 className="font-bold text-sm text-[#201E1F]">{t('about.point3Title')}</h3>
                   <p className="text-xs text-[#201E1F]/70 mt-1">{t('about.point3Desc')}</p>
                 </div>
               </motion.div>
@@ -119,7 +119,7 @@ export default function AboutPhilosophy() {
                   <Flame className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-[#201E1F]">{t('about.point4Title')}</h4>
+                  <h3 className="font-bold text-sm text-[#201E1F]">{t('about.point4Title')}</h3>
                   <p className="text-xs text-[#201E1F]/70 mt-1">{t('about.point4Desc')}</p>
                 </div>
               </motion.div>
@@ -138,8 +138,12 @@ export default function AboutPhilosophy() {
               {/* Real Library Study Hall Photo with Students */}
               <div className="h-[480px] sm:h-[520px] overflow-hidden">
                 <img
-                  src="/WhatsApp Image 2026-08-16 at 12.58.48 PM.jpeg" 
-                  alt="ShreeJi Reading Library Active Study Hall"
+                  src="/central-study-hall-students.webp" 
+                  alt="Students studying in the active silent study hall at ShreeJi Reading Library, Bhavnagar"
+                  loading="lazy"
+                  decoding="async"
+                  width="1280"
+                  height="964"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
