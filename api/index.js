@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 
 const app = express();
 app.use(cors());
@@ -10,15 +11,18 @@ app.use(express.json());
 // Firebase Admin SDK — on Vercel the key must be provided via env:
 // FIREBASE_SERVICE_ACCOUNT = JSON string of serviceAccountKey.json
 let adminDb = null;
+let adminAuth = null;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     const adminApp = getApps().length === 0 ? initializeApp({ credential: cert(serviceAccount) }) : getApps()[0];
     adminDb = getFirestore(adminApp);
+    adminAuth = getAuth(adminApp);
     console.log("🔥 Firebase Admin SDK initialized for Vercel (studyhaus-crm)");
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const adminApp = getApps().length === 0 ? initializeApp() : getApps()[0];
     adminDb = getFirestore(adminApp);
+    adminAuth = getAuth(adminApp);
     console.log("🔥 Firebase Admin SDK initialized with default credentials");
   } else {
     console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT not set on Vercel — API runs in degraded mode.");
@@ -348,4 +352,153 @@ app.get('/api/seat-availability', async (req, res) => {
 });
 
 // Export for Vercel
+// ================= Staff-only gate =================
+// Every destructive endpoint is Owner/Admin only. The token is a real Firebase
+// ID token from the caller's own signed-in session, so forging it already
+// means owning that account. Without this the purge route would let anyone on
+// the internet erase a student.
+async function requireOwnerAdmin(req, res) {
+  if (!adminAuth || !adminDb) {
+    res.status(503).json({ error: 'Backend not configured (service account missing).' });
+    return null;
+  }
+  const header = String(req.headers.authorization || '');
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) { res.status(401).json({ error: 'Sign-in required.' }); return null; }
+  try {
+    const decoded = await adminAuth.verifyIdToken(token);
+    const snap = await adminDb.collection('users').doc(decoded.uid).get();
+    const role = snap.exists ? String(snap.data().role || '') : '';
+    const isBootstrap = String(decoded.email || '').toLowerCase() === 'admin@studyhaus.com';
+    if (role !== 'Owner/Admin' && !isBootstrap) {
+      res.status(403).json({ error: 'Only Owner/Admin can perform this action.' });
+      return null;
+    }
+    return decoded;
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid or expired session.' });
+    return null;
+  }
+}
+
+const pathId = (p) => String(p || '').split('/').pop();
+
+// ================= Full student purge =================
+// The Firebase CLIENT SDK can never delete an Auth user — which is exactly why
+// a student removed from the admin portal could still sign in to the portal.
+// This route is the only place that ends the credential. Auth dies FIRST so
+// portal access is gone even if a later step fails, then every document,
+// history row and uniqueness claim that named this person.
+app.post('/api/students/purge', async (req, res) => {
+  const caller = await requireOwnerAdmin(req, res);
+  if (!caller) return;
+
+  const studentId = String((req.body && req.body.studentId) || '').trim();
+  if (!studentId) return res.status(400).json({ error: 'studentId is required.' });
+
+  try {
+    const snap = await adminDb.collection('students').doc(studentId).get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+
+    const uid = String(data.uid || '').trim();
+    const loginId = String(data.loginId || '').trim();
+    const authEmail = String(data.authEmail || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const phone = normalizePhone(data.phone);
+
+    const removed = { auth: false, docs: 0, history: 0, claims: 0, seat: false };
+
+    // 1. Credential — this is what actually locks them out of the portal.
+    const authTargets = new Set([uid, authEmail].filter(Boolean));
+    if (!authTargets.size && loginId) {
+      authTargets.add(loginId.includes('@') ? loginId : `${loginId}@student.shreejilibrary.com`);
+    }
+    for (const target of authTargets) {
+      try {
+        const user = target.includes('@')
+          ? await adminAuth.getUserByEmail(target).catch(() => null)
+          : await adminAuth.getUser(target).catch(() => null);
+        if (user) { await adminAuth.deleteUser(user.uid); removed.auth = true; }
+      } catch (_) { /* already gone */ }
+    }
+
+    // 2. Core documents (only counted when they actually existed).
+    for (const col of ['students', 'users', 'studentDocuments', 'admissions']) {
+      try {
+        const ref = adminDb.collection(col).doc(studentId);
+        if ((await ref.get()).exists) { await ref.delete(); removed.docs++; }
+      } catch (_) { /* best-effort */ }
+    }
+
+    // 3. Everything else that carried this person's history.
+    for (const col of ['payments', 'attendance', 'complaints', 'renewals', 'documents', 'notifications']) {
+      try {
+        const s = await adminDb.collection(col).where('studentId', '==', studentId).get();
+        if (!s.empty) {
+          const batch = adminDb.batch();
+          s.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+          removed.history += s.size;
+        }
+      } catch (_) { /* collection may be empty */ }
+    }
+
+    // 4. Free the seat so nobody inherits a ghost booking.
+    try {
+      const seatNo = String(data.seatNumber || data.seatAssigned || '').trim();
+      if (seatNo) {
+        const seats = await adminDb.collection('seats')
+          .where('seatNumber', '==', seatNo)
+          .get();
+        for (const d of seats.docs) {
+          const sd = d.data() || {};
+          if (!sd.assignedStudentId || sd.assignedStudentId === studentId) {
+            await d.ref.update({
+              status: 'Available', assignedStudentId: null,
+              assignedStudentName: null, planType: null,
+              lastUpdated: FieldValue.serverTimestamp(),
+            });
+            removed.seat = true;
+          }
+        }
+      }
+    } catch (_) { /* seat release is best-effort */ }
+
+    // 5. Uniqueness claims (phone_ / email_) — drop ONLY claims whose owners
+    //    are all gone. A claim pointing at a living student belongs to someone
+    //    else and must survive: that is how we never merge two people.
+    const claimKeys = new Set();
+    if (phone) claimKeys.add(`phone_${phone}`);
+    if (loginId) {
+      claimKeys.add(`phone_${normalizePhone(loginId) || loginId}`);
+      claimKeys.add(`email_${loginId.toLowerCase()}`);
+    }
+    if (authEmail) claimKeys.add(`email_${authEmail.toLowerCase()}`);
+    if (email) claimKeys.add(`email_${email}`);
+    for (const key of claimKeys) {
+      try {
+        const ref = adminDb.collection('uniqueness').doc(key);
+        const claim = await ref.get();
+        if (!claim.exists) continue;
+        const cd = claim.data() || {};
+        const ownerIds = [
+          ...(Array.isArray(cd.owners) ? cd.owners : []),
+          cd.ownerPath || '', cd.uid || '',
+        ].map(pathId).filter(Boolean);
+        if (!ownerIds.length) continue;
+        let allGone = true;
+        for (const id of ownerIds) {
+          if ((await adminDb.collection('students').doc(id).get()).exists) { allGone = false; break; }
+        }
+        if (allGone) { await ref.delete(); removed.claims++; }
+      } catch (_) { /* keep claims we cannot reason about */ }
+    }
+
+    return res.status(200).json({ ok: true, removed });
+  } catch (e) {
+    console.error('purge failed:', e.message);
+    return res.status(500).json({ error: e.message || 'Purge failed.' });
+  }
+});
+
 module.exports = app;
