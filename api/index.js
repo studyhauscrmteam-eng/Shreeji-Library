@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const app = express();
 app.use(cors());
@@ -60,16 +60,109 @@ async function getLivePlans() {
   return plans;
 }
 
+// ================= Website lead (`visitors`, spec §2) =================
+// Caps enforced by the deployed security rules on `visitors` create:
+// visitorName<=120, phone 10..15, email<=160, message<=1000, purpose<=80,
+// source must be 'Website' | 'Walk-in'.
+const cap = (value, max) => String(value ?? '').slice(0, max);
+const pad2 = (n) => String(n).padStart(2, '0');
+const localDateStr = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const localTimeStr = (d = new Date()) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+// Exactly the same field shape as the website's direct-SDK write
+// (src/firebase.js -> submitWebsiteLead). NEVER uid / userId: a stale auth uid
+// on a submission used to break portal logins permanently.
+function buildVisitorLead({ name, phone, email = '', message = '', planId = '', planName = '' }) {
+  const nowIso = new Date().toISOString();
+  return {
+    visitorName: cap(String(name || '').trim(), 120),
+    phone,
+    email: cap(String(email || '').trim().toLowerCase(), 160),
+    message: cap(String(message || ''), 1000),
+    purpose: 'Admission Inquiry',
+    planId: cap(String(planId || '').trim(), 60),
+    planName: cap(String(planName || '').trim(), 160),
+    source: 'Website',
+    leadStatus: 'New',
+    status: 'Active',
+    employeeName: '',
+    employeeId: '',
+    visitDate: localDateStr(),
+    visitTime: localTimeStr(),
+    termsAccepted: true,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+}
+
+// ONE transaction = claim `uniqueness/sub_<key>` + create the lead, so a
+// retry / double-click can never produce two records. Admin SDK bypasses the
+// security rules, so no anonymous session is needed here.
+async function saveVisitorLead(lead, submissionKey) {
+  const key = String(submissionKey || '').trim() ||
+    `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  const uniquenessRef = adminDb.collection('uniqueness').doc(`sub_${key}`);
+  const visitorRef = adminDb.collection('visitors').doc();
+  return adminDb.runTransaction(async (tx) => {
+    const claim = await tx.get(uniquenessRef);
+    if (claim.exists) {
+      const existing = claim.data() || {};
+      const existingId = existing.visitorId ||
+        (existing.docPath ? String(existing.docPath).split('/').pop() : '');
+      return { id: existingId || '', deduped: true };
+    }
+    tx.set(uniquenessRef, {
+      kind: 'submission',
+      visitorId: visitorRef.id,
+      docPath: visitorRef.path,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    tx.set(visitorRef, {
+      ...lead,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { id: visitorRef.id, deduped: false };
+  });
+}
+
+// Admin badge/toast for a new website lead (leads now surface under Visitors).
+async function notifyNewLead(lead, leadId) {
+  if (!adminDb) return;
+  try {
+    await adminDb.collection('notifications').add({
+      type: 'new-visitor-lead',
+      title: 'New website lead',
+      body: `${lead.visitorName} (${lead.phone}) requested "${lead.planName}". Open Visitors → New leads.`,
+      visitorId: leadId,
+      admissionId: leadId, // legacy alias so older readers still resolve
+      studentId: '',
+      read: false,
+      forRoles: ['Owner/Admin', 'Manager'],
+      createdAt: new Date().toISOString(),
+    });
+  } catch {}
+}
+
 async function findAdmissionByPhoneOrEmail(identifier) {
   if (!adminDb || !identifier) return null;
   const clean = String(identifier).trim();
   const phone = normalizePhone(clean);
   const lower = clean.toLowerCase();
-  const snapshot = await adminDb.collection('admissions').get();
-  for (const d of snapshot.docs) {
+  const isMatch = (v) =>
+    (phone && normalizePhone(v.phone || '') === phone) ||
+    (v.email && String(v.email).toLowerCase() === lower);
+  // Legacy admissions first (retired but still readable history)…
+  const legacy = await adminDb.collection('admissions').get();
+  for (const d of legacy.docs) {
     const v = d.data();
-    if (phone && normalizePhone(v.phone || '') === phone) return { id: d.id, ...v };
-    if (v.email && String(v.email).toLowerCase() === lower) return { id: d.id, ...v };
+    if (isMatch(v)) return { id: d.id, ...v };
+  }
+  // …then the live website leads / walk-in visitors.
+  const leads = await adminDb.collection('visitors').get();
+  for (const d of leads.docs) {
+    const v = d.data();
+    if (isMatch(v)) return { id: d.id, ...v, name: v.name || v.visitorName || '' };
   }
   return null;
 }
@@ -100,11 +193,15 @@ app.get('/api/plans', async (req, res) => {
   }
 });
 
+// Website leads (`visitors`, source "Website") — `admissions` is retired as a
+// data store (spec §2); nothing new is ever written there.
 app.get('/api/bookings', async (req, res) => {
   if (!adminDb) return res.json({ success: true, count: 0, data: [], source: 'not-configured' });
   try {
-    const snapshot = await adminDb.collection('admissions').get();
-    const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const snapshot = await adminDb.collection('visitors').get();
+    const all = snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((v) => (v.source || 'Website') !== 'Walk-in');
     all.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
     res.json({ success: true, count: Math.min(all.length, 100), data: all.slice(0, 100), source: 'crm-live' });
   } catch {
@@ -123,7 +220,7 @@ app.get('/api/students/lookup', async (req, res) => {
 });
 
 app.post('/api/bookings', async (req, res) => {
-  const { name, phone, email, plan, planId, planName, startDate, message, userId, uid, dob, gender, paymentMethod, transactionId, paymentDueDate, remarks, termsAccepted } = req.body;
+  const { name, phone, email, plan, planId, planName, message, remarks, submissionKey } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ success: false, message: 'Name and Phone number are required.' });
   }
@@ -151,63 +248,26 @@ app.post('/api/bookings', async (req, res) => {
     }
   } catch {}
 
-  const nowIso = new Date().toISOString();
-  // CRM `admissions` schema — NEVER `students`, NEVER Active/Approved,
-  // NEVER seatNumber, no studentId. No duplicate blocking (CRM approves).
-  const inquiry = {
-    name: String(name).trim(),
+  // `visitors` website lead (spec §2) + uniqueness/sub_ claim in one
+  // transaction. NEVER `students`, NEVER `admissions`, NEVER a uid/userId.
+  const lead = buildVisitorLead({
+    name,
     phone: cleanPhone,
-    email: String(email || '').trim().toLowerCase(),
-    dob: dob || '',
-    gender: gender || '',
-    parentPhone: '',
-    college: '',
-    course: '',
-    address: '',
+    email,
+    message: remarks ?? message ?? '',
     planId: resolvedPlanId,
     planName: resolvedPlanName,
-    seatNumber: '',
-    paymentMethod: paymentMethod === 'Paid' ? 'Paid' : 'Pay Later',
-    transactionId: String(transactionId || '').trim(),
-    paymentDueDate: paymentDueDate || '',
-    status: 'Pending',
-    approvalStatus: 'Pending',
-    role: 'Student',
-    uid: uid || userId || null,
-    termsAccepted: termsAccepted === true || termsAccepted === 'true' ? true : Boolean(uid || userId),
-    source: 'Website',
-    isStudentSubmission: true,
-    remarks: remarks ?? message ?? '',
-    startDate: startDate || nowIso.split('T')[0],
-    userId: userId || uid || null,
-    createdAt: nowIso,
-    updatedAt: nowIso,
-  };
+  });
 
   try {
-    const admissionUid = uid || userId;
-    let docId;
-    if (admissionUid) {
-      await adminDb.collection('admissions').doc(String(admissionUid)).set(inquiry, { merge: true });
-      docId = String(admissionUid);
-    } else {
-      const docRef = await adminDb.collection('admissions').add(inquiry);
-      docId = docRef.id;
-    }
-    try {
-      await adminDb.collection('notifications').add({
-        type: 'new-admission',
-        title: 'New admission request',
-        body: `${inquiry.name} (${cleanPhone}) requested "${resolvedPlanName}". Open Admissions → Pending approval.`,
-        admissionId: docId,
-        studentId: '',
-        read: false,
-        forRoles: ['Owner/Admin', 'Manager'],
-        createdAt: new Date().toISOString(),
-      });
-    } catch {}
-    console.log(`[ShreeJi Vercel] Website admission -> admissions/${docId}: ${inquiry.name} (${cleanPhone})`);
-    res.status(201).json({ success: true, message: 'Request received — pending admin approval. We will email you once approved.', booking: { id: docId, ...inquiry } });
+    const saved = await saveVisitorLead(lead, submissionKey);
+    if (!saved.deduped) await notifyNewLead(lead, saved.id);
+    console.log(`[ShreeJi Vercel] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone})`);
+    res.status(201).json({
+      success: true,
+      message: 'Request received — pending admin approval. We will email you once approved.',
+      booking: { id: saved.id, deduped: saved.deduped, ...lead },
+    });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to save booking. Please try again.' });
   }
@@ -215,44 +275,25 @@ app.post('/api/bookings', async (req, res) => {
 
 app.post('/api/students', async (req, res) => {
   if (!adminDb) return res.status(503).json({ success: false, message: 'Signup unavailable: backend not connected to CRM.' });
-  const { name, phone, email, planId, planName, uid, userId, dob, gender } = req.body;
+  const { name, phone, email, planId, planName, message, submissionKey } = req.body;
   if (!name || !phone) return res.status(400).json({ success: false, message: 'Name and Phone are required.' });
   const cleanPhone = normalizePhone(phone);
   if (!/^\d{10}$/.test(cleanPhone)) return res.status(400).json({ success: false, message: 'Enter a valid 10-digit mobile number.' });
-  const nowIso = new Date().toISOString();
-  const doc = {
-    name: String(name).trim(), phone: cleanPhone, email: String(email || '').trim().toLowerCase(),
-    dob: dob || '', gender: gender || '', parentPhone: '', college: '', course: '', address: '',
-    planId: planId || '', planName: planName || '',
-    seatNumber: '', paymentMethod: 'Pay Later', transactionId: '', paymentDueDate: '',
-    status: 'Pending', approvalStatus: 'Pending',
-    role: 'Student', uid: uid || userId || null, termsAccepted: true,
-    source: 'Website', isStudentSubmission: true,
-    remarks: '', createdAt: nowIso, updatedAt: nowIso,
-  };
+  // `visitors` website lead (spec §2) + uniqueness/sub_ claim in one
+  // transaction. NEVER `students`, NEVER `admissions`, NEVER a uid/userId.
+  const lead = buildVisitorLead({
+    name,
+    phone: cleanPhone,
+    email,
+    message: message || '',
+    planId: planId || '',
+    planName: planName || '',
+  });
   try {
-    const admissionUid = uid || userId;
-    let id;
-    if (admissionUid) {
-      await adminDb.collection('admissions').doc(String(admissionUid)).set(doc, { merge: true });
-      id = String(admissionUid);
-    } else {
-      const ref = await adminDb.collection('admissions').add(doc);
-      id = ref.id;
-    }
-    try {
-      await adminDb.collection('notifications').add({
-        type: 'new-admission',
-        title: 'New admission request',
-        body: `${doc.name} (${cleanPhone}) requested "${doc.planName}". Open Admissions → Pending approval.`,
-        admissionId: id,
-        studentId: '',
-        read: false,
-        forRoles: ['Owner/Admin', 'Manager'],
-        createdAt: new Date().toISOString(),
-      });
-    } catch {}
-    res.status(201).json({ success: true, data: { id, ...doc } });
+    const saved = await saveVisitorLead(lead, submissionKey);
+    if (!saved.deduped) await notifyNewLead(lead, saved.id);
+    console.log(`[ShreeJi Vercel] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone})`);
+    res.status(201).json({ success: true, data: { id: saved.id, deduped: saved.deduped, ...lead } });
   } catch {
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });
   }
@@ -263,20 +304,25 @@ app.patch('/api/bookings/:id', async (req, res) => {
   const { id } = req.params;
   const { status, remarks } = req.body;
   try {
-    const ref = adminDb.collection('admissions').doc(id);
+    const ref = adminDb.collection('visitors').doc(id);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ success: false, message: 'Booking not found.' });
     const updates = { updatedAt: new Date().toISOString() };
+    if (typeof remarks === 'string') updates.remarks = remarks;
     if (status) {
-      updates.status = status;
-      if (status === 'Active' || status === 'Confirmed' || status === 'Approved') {
-        updates.status = 'Active';
-        updates.approvalStatus = 'Approved';
-      } else if (status === 'Pending') {
-        updates.approvalStatus = 'Pending';
+      if (status === 'New' || status === 'Converted' || status === 'Closed') {
+        // Website-lead lifecycle (spec §2)
+        updates.leadStatus = status;
+      } else {
+        // Walk-in lifecycle (Active | Completed) + legacy approval words
+        updates.status = status === 'Confirmed' || status === 'Approved' ? 'Active' : status;
+        if (status === 'Active' || status === 'Confirmed' || status === 'Approved') {
+          updates.leadStatus = 'Converted';
+        } else if (status === 'Pending') {
+          updates.leadStatus = 'New';
+        }
       }
     }
-    if (typeof remarks === 'string') updates.remarks = remarks;
     await ref.update(updates);
     const updated = await ref.get();
     res.json({ success: true, message: 'Booking updated in CRM.', booking: { id, ...updated.data() } });

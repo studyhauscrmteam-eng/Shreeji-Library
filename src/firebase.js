@@ -2,7 +2,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getFirestore,
   collection,
-  addDoc,
   doc,
   setDoc,
   getDoc,
@@ -10,7 +9,8 @@ import {
   onSnapshot,
   query,
   where,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
@@ -49,8 +49,8 @@ try {
  * Admin SDK and bypasses locked public Firestore security rules:
  *
  *   GET  /api/plans    -> membership plans (single source of truth)
- *   POST /api/bookings -> creates a Pending inquiry
- *   GET  /api/bookings -> recent inquiries (staff Admin portal)
+ *   POST /api/bookings -> creates a website lead (`visitors`, spec §2)
+ *   GET  /api/bookings -> recent leads (staff Admin portal)
  */
 
 // Fetch membership plans from the backend (single source of truth).
@@ -155,96 +155,92 @@ const normalizePhone10 = (phone) => {
   return digits;
 };
 
-// Direct-SDK admission write: ONE addDoc to admissions (Pending/Pending) +
-// ONE admin notification. seatNumber/seatId travel ONLY when the chosen plan
-// allows selection (seatSelectable === true); otherwise both go out empty and
-// the backend strips them anyway. NEVER writes to students.
-export const submitAdmissionDirect = async ({
+// ================= Website lead -> `visitors` (spec §2) =================
+// Hard caps enforced by the deployed security rules on `visitors` create:
+// visitorName<=120, phone 10..15, email<=160, message<=1000, purpose<=80,
+// source must be 'Website' | 'Walk-in'. Truncate so a long paste can never
+// fail the write.
+const cap = (value, max) => String(value ?? '').slice(0, max);
+
+// Website form submission -> ONE `visitors` lead, written inside a transaction
+// that simultaneously claims `uniqueness/sub_<submissionKey>`. A double-click,
+// a retry after a timeout, or a second tab reusing the same key can never
+// create a second lead: if the claim already exists the transaction returns
+// the original visitor id and writes nothing.
+//
+// NEVER writes `uid` / `userId`, NEVER touches `admissions` or `students`.
+// The anonymous auth session only exists so `signedIn()` passes the rules —
+// it is deliberately NOT stored on the document (that stale uid used to break
+// portal logins, because students/{realUid} was never created).
+export const submitWebsiteLead = async ({
   name,
   phone,
-  email,
-  planId,
-  planName,
+  email = '',
   message = '',
-  seatNumber = '',
-  seatId = '',
-  seatSelectable = false,
+  planId = '',
+  planName = '',
+  submissionKey = '',
 }) => {
-  if (!db || !auth) throw new Error('Firebase is not configured. Please try again later.');
+  if (!db) throw new Error('Firebase is not configured. Please try again later.');
 
-  const cleanName = String(name || '').trim();
+  const cleanName = cap(String(name || '').trim(), 120);
   const cleanPhone = normalizePhone10(phone);
-  const cleanEmail = String(email || '').trim().toLowerCase();
-  const cleanPlanId = String(planId || '').trim();
-  const cleanPlanName = String(planName || '').trim();
+  const cleanEmail = cap(String(email || '').trim().toLowerCase(), 160);
+  const cleanMessage = cap(String(message || '').trim(), 1000);
+  const cleanPlanId = cap(String(planId || '').trim(), 60);
+  const cleanPlanName = cap(String(planName || '').trim(), 160);
 
   if (!cleanName) throw new Error('Please enter your full name.');
   if (!/^\d{10}$/.test(cleanPhone)) throw new Error('Please enter a valid 10-digit mobile number.');
-  if (!cleanPlanId || !cleanPlanName) throw new Error('Please select a membership plan.');
 
-  let sendSeatNumber = '';
-  let sendSeatId = '';
-  if (seatSelectable && seatNumber) {
-    if (!isCanonicalSeat(seatNumber)) {
-      throw new Error('Selected seat is invalid. Please pick your seat again from the map.');
-    }
-    sendSeatNumber = String(seatNumber).trim().toUpperCase();
-    sendSeatId = String(seatId || '').trim();
-  }
-
+  // Signed-in (anonymous counts) so visitors/uniqueness create passes signedIn().
   await ensureAnon();
-  const uid = auth.currentUser ? auth.currentUser.uid : null;
-  const nowIso = new Date().toISOString();
 
-  const payload = {
-    name: cleanName,
+  const key = String(submissionKey || '').trim() ||
+    `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  const uniquenessRef = doc(db, 'uniqueness', `sub_${key}`);
+  const visitorsCol = collection(db, 'visitors');
+
+  const now = new Date();
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const lead = {
+    visitorName: cleanName,
     phone: cleanPhone,
     email: cleanEmail,
-    dob: '',
-    gender: '',
-    parentPhone: '',
-    college: '',
-    course: '',
-    address: '',
+    message: cleanMessage,
+    purpose: 'Admission Inquiry',
     planId: cleanPlanId,
     planName: cleanPlanName,
-    seatNumber: sendSeatNumber,
-    seatId: sendSeatId,
-    paymentMethod: 'Pay Later',
-    transactionId: '',
-    paymentDueDate: '',
-    status: 'Pending',
-    approvalStatus: 'Pending',
-    role: 'Student',
-    uid,
-    termsAccepted: true,
     source: 'Website',
-    isStudentSubmission: true,
-    remarks: String(message || ''),
-    startDate: nowIso.split('T')[0],
-    userId: uid,
+    leadStatus: 'New',
+    status: 'Active',
+    employeeName: '',
+    employeeId: '',
+    visitDate: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`,
+    visitTime: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
+    termsAccepted: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  const ref = await addDoc(collection(db, 'admissions'), payload);
-
-  try {
-    await addDoc(collection(db, 'notifications'), {
-      type: 'new-admission',
-      title: 'New admission request',
-      body: `${cleanName} (${cleanPhone}) requested "${cleanPlanName}". Open Admissions → Pending approval.`,
-      admissionId: ref.id,
-      studentId: '',
-      read: false,
-      forRoles: ['Owner/Admin', 'Manager'],
+  return runTransaction(db, async (tx) => {
+    const claim = await tx.get(uniquenessRef);
+    if (claim.exists()) {
+      const existing = claim.data() || {};
+      return { id: existing.visitorId || '', deduped: true };
+    }
+    // Auto-id ref (addDoc equivalent) — created and written inside the same
+    // transaction as the claim, so lead + claim always land together.
+    const visitorRef = doc(visitorsCol);
+    tx.set(uniquenessRef, {
+      kind: 'submission',
+      visitorId: visitorRef.id,
+      docPath: visitorRef.path,
       createdAt: serverTimestamp(),
     });
-  } catch (notifyErr) {
-    console.warn('Admission saved but notification write failed:', notifyErr?.message || notifyErr);
-  }
-
-  return { id: ref.id };
+    tx.set(visitorRef, lead);
+    return { id: visitorRef.id, deduped: false };
+  });
 };
 
 export {
