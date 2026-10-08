@@ -7,13 +7,11 @@ import { usePlans } from '../context/PlansContext';
 
 // Student portal login — the success panel hands the visitor off to the portal
 // where seat selection now lives (spec §6: website form has NO seat map).
-// NOTE: student.shreejilibrary.co.in has NO DNS records yet (the two GoDaddy
-// A records were never added), so that host does not resolve at all. Defaulting
-// to the working Firebase URL keeps the handoff alive; set
-// VITE_STUDENT_PORTAL_URL to switch to the pretty domain once DNS exists.
+// The main portal domain: DNS is live (DNS_MATCH) and the cert is issued, so
+// this is the one true link. Override with VITE_STUDENT_PORTAL_URL if needed.
 const portalUrl =
   import.meta.env.VITE_STUDENT_PORTAL_URL ||
-  'https://studyhaus-crm-student.web.app/login.html';
+  'https://student.shreejilibrary.co.in/login.html';
 
 // One claim key per form mount: `uniqueness/sub_<key>` is claimed inside the
 // submit transaction, so a double-click / retry can never create two leads.
