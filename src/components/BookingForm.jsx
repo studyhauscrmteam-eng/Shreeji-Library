@@ -191,7 +191,7 @@ export default function BookingForm({ selectedPlan }) {
       setPhoneError('');
       setPlanDropdownOpen(false);
       // Only swap to the success panel once the write actually succeeded.
-      setSuccess({ refId: ref });
+      setSuccess({ refId: ref, duplicate: lead?.duplicate === true });
     } catch (err) {
       console.error('Website lead submit failed:', err);
       // Keep every entered value — the visitor can just press submit again.
@@ -266,18 +266,27 @@ export default function BookingForm({ selectedPlan }) {
             </div>
 
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight leading-snug">
-              {isGu ? 'વિનંતી મળી ગઈ છે — એડમિન મંજૂરી બાકી છે' : 'Request received — pending admin approval'}
+              {success.duplicate
+                ? (isGu ? 'તમારા નંબરથી પહેલેથી વિનંતી છે — અમે ટૂંક સમયમાં કોલ કરીશું'
+                        : 'We already have a request from this number — we’ll call you')
+                : (isGu ? 'વિનંતી મળી ગઈ છે — એડમિન મંજૂરી બાકી છે' : 'Request received — pending admin approval')}
             </h3>
 
-            <p className="text-sm text-[#F5E4E4]/85">
-              {isGu ? 'રેફરન્સ ID:' : 'Reference ID:'}{' '}
-              <span className="font-mono font-bold text-[#EB6A30]">{success.refId}</span>
-            </p>
+            {!success.duplicate && (
+              <p className="text-sm text-[#F5E4E4]/85">
+                {isGu ? 'રેફરન્સ ID:' : 'Reference ID:'}{' '}
+                <span className="font-mono font-bold text-[#EB6A30]">{success.refId}</span>
+              </p>
+            )}
 
             <p className="text-sm text-[#F5E4E4]/70 max-w-xl mx-auto">
-              {isGu
-                ? 'અમે તમારી વિનંતી નોંધી લીધી છે અને મંજૂરી પછી ઇમેઇલ દ્વારા જાણ કરીશું. સીટ બુકિંગ પૂર્ણ કરવા માટે નીચેના બટનથી સ્ટુડન્ટ પોર્ટલ ખોલો.'
-                : 'We have logged your inquiry and will email you once it is approved. Open the student portal in a new tab to complete your seat booking.'}
+              {success.duplicate
+                ? (isGu
+                    ? 'અમને આ નંબરથી પહેલેથી વિનંતી મળી છે, તેથી બીજી નોંધણી કરવામાં આવી નથી. અમે ટૂંક સમયમાં તમને કોલ કરીશું.'
+                    : 'No second record was created — we already have your details on file and will call you shortly.')
+                : (isGu
+                    ? 'અમે તમારી વિનંતી નોંધી લીધી છે અને મંજૂરી પછી ઇમેઇલ દ્વારા જાણ કરીશું. સીટ બુકિંગ પૂર્ણ કરવા માટે નીચેના બટનથી સ્ટુડન્ટ પોર્ટલ ખોલો.'
+                    : 'We have logged your inquiry and will email you once it is approved. Open the student portal in a new tab to complete your seat booking.')}
             </p>
 
             <button

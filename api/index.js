@@ -107,26 +107,50 @@ async function saveVisitorLead(lead, submissionKey) {
     `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   const uniquenessRef = adminDb.collection('uniqueness').doc(`sub_${key}`);
   const visitorRef = adminDb.collection('visitors').doc();
+  // ONE enquiry per phone / per email (owner's rule). Separate prefix from
+  // the portal's `phone_`/`email_` index claims so neither can clobber the
+  // other. Claim + lead are written in the same transaction.
+  const phone = lead.phone || '';
+  const email = lead.email || '';
+  const phoneRef = phone ? adminDb.collection('uniqueness').doc(`req_lead_${phone}`) : null;
+  const emailRef = email ? adminDb.collection('uniqueness').doc(`req_leadmail_${email}`) : null;
   return adminDb.runTransaction(async (tx) => {
+    // All reads before all writes.
     const claim = await tx.get(uniquenessRef);
+    const phoneSnap = phoneRef ? await tx.get(phoneRef) : null;
+    const emailSnap = emailRef ? await tx.get(emailRef) : null;
+
+    const prior = (phoneSnap && phoneSnap.exists && phoneSnap.data())
+      || (emailSnap && emailSnap.exists && emailSnap.data())
+      || null;
+    if (prior) {
+      const priorId = prior.visitorId ||
+        (prior.docPath ? String(prior.docPath).split('/').pop() : '');
+      return { id: priorId || '', deduped: true, duplicate: true };
+    }
+
     if (claim.exists) {
       const existing = claim.data() || {};
       const existingId = existing.visitorId ||
         (existing.docPath ? String(existing.docPath).split('/').pop() : '');
-      return { id: existingId || '', deduped: true };
+      return { id: existingId || '', deduped: true, duplicate: false };
     }
-    tx.set(uniquenessRef, {
-      kind: 'submission',
+
+    const stamp = {
       visitorId: visitorRef.id,
       docPath: visitorRef.path,
+      uid: '',
       createdAt: FieldValue.serverTimestamp(),
-    });
+    };
+    tx.set(uniquenessRef, { kind: 'submission', visitorId: stamp.visitorId, docPath: stamp.docPath, createdAt: stamp.createdAt });
+    if (phoneRef) tx.set(phoneRef, { kind: 'phone-index', ...stamp });
+    if (emailRef) tx.set(emailRef, { kind: 'email', ...stamp });
     tx.set(visitorRef, {
       ...lead,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { id: visitorRef.id, deduped: false };
+    return { id: visitorRef.id, deduped: false, duplicate: false };
   });
 }
 
@@ -269,8 +293,11 @@ app.post('/api/bookings', async (req, res) => {
     console.log(`[ShreeJi Vercel] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone})`);
     res.status(201).json({
       success: true,
-      message: 'Request received — pending admin approval. We will email you once approved.',
-      booking: { id: saved.id, deduped: saved.deduped, ...lead },
+      duplicate: !!saved.duplicate,
+      message: saved.duplicate
+        ? 'We already have a request from this number — no second record was created. We will call you.'
+        : 'Request received — pending admin approval. We will email you once approved.',
+      booking: { id: saved.id, deduped: saved.deduped, duplicate: !!saved.duplicate, ...lead },
     });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed to save booking. Please try again.' });

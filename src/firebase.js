@@ -201,6 +201,14 @@ export const submitWebsiteLead = async ({
   const uniquenessRef = doc(db, 'uniqueness', `sub_${key}`);
   const visitorsCol = collection(db, 'visitors');
 
+  // ONE enquiry per phone / per email (owner's rule: the same number can't
+  // send a request twice). Separate prefix from the portal's `phone_` / `email_`
+  // index claims so the two can never clobber each other. Claiming it inside
+  // the SAME transaction that writes the lead means lead + claim always land
+  // together — and a second attempt writes NOTHING.
+  const phoneRef = cleanPhone ? doc(db, 'uniqueness', `req_lead_${cleanPhone}`) : null;
+  const emailRef = cleanEmail ? doc(db, 'uniqueness', `req_leadmail_${cleanEmail}`) : null;
+
   const now = new Date();
   const pad2 = (n) => String(n).padStart(2, '0');
   const lead = {
@@ -224,22 +232,41 @@ export const submitWebsiteLead = async ({
   };
 
   return runTransaction(db, async (tx) => {
+    // EVERY read before the first write — Firestore rejects tx.get() after a
+    // tx.set(), and this is the path that must never fail silently.
     const claim = await tx.get(uniquenessRef);
+    const phoneClaim = phoneRef ? await tx.get(phoneRef) : null;
+    const emailClaim = emailRef ? await tx.get(emailRef) : null;
+
+    // Already requested by this number / email -> write nothing, hand back
+    // the record that already exists.
+    // `exists` is a METHOD on the web SDK's DocumentSnapshot.
+    const taken = (snap) => snap && snap.exists() ? (snap.data() || {}) : null;
+    const prior = taken(phoneClaim) || taken(emailClaim);
+    if (prior) {
+      return { id: prior.visitorId || '', deduped: true, duplicate: true };
+    }
+
+    // Double-click / second tab reusing the same form key.
     if (claim.exists()) {
       const existing = claim.data() || {};
-      return { id: existing.visitorId || '', deduped: true };
+      return { id: existing.visitorId || '', deduped: true, duplicate: false };
     }
+
     // Auto-id ref (addDoc equivalent) — created and written inside the same
-    // transaction as the claim, so lead + claim always land together.
+    // transaction as the claims, so lead + claims always land together.
     const visitorRef = doc(visitorsCol);
-    tx.set(uniquenessRef, {
-      kind: 'submission',
+    const stamp = {
       visitorId: visitorRef.id,
       docPath: visitorRef.path,
+      uid: '',
       createdAt: serverTimestamp(),
-    });
+    };
+    tx.set(uniquenessRef, { kind: 'submission', ...stamp });
+    if (phoneRef) tx.set(phoneRef, { kind: 'phone-index', ...stamp });
+    if (emailRef) tx.set(emailRef, { kind: 'email', ...stamp });
     tx.set(visitorRef, lead);
-    return { id: visitorRef.id, deduped: false };
+    return { id: visitorRef.id, deduped: false, duplicate: false };
   });
 };
 
