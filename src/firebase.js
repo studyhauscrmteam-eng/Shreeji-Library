@@ -157,7 +157,7 @@ const normalizePhone10 = (phone) => {
 
 // ================= Website lead -> `visitors` (spec §2) =================
 // Hard caps enforced by the deployed security rules on `visitors` create:
-// visitorName<=120, phone 10..15, email<=160, message<=1000, purpose<=80,
+// visitorName<=120, phone 10..15, email<=160, message<=1000,
 // source must be 'Website' | 'Walk-in'. Truncate so a long paste can never
 // fail the write.
 const cap = (value, max) => String(value ?? '').slice(0, max);
@@ -216,7 +216,6 @@ export const submitWebsiteLead = async ({
     phone: cleanPhone,
     email: cleanEmail,
     message: cleanMessage,
-    purpose: 'Admission Inquiry',
     planId: cleanPlanId,
     planName: cleanPlanName,
     source: 'Website',
@@ -226,7 +225,6 @@ export const submitWebsiteLead = async ({
     employeeId: '',
     visitDate: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`,
     visitTime: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
-    termsAccepted: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };

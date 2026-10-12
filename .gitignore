@@ -40,6 +40,8 @@ original-images-backup/
 *.njsproj
 *.sln
 *.sw?
+.opencode/
+docs/
 
 # Environment & Secret files
 .env

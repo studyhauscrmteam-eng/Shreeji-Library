@@ -83,7 +83,7 @@ async function getLivePlans() {
 
 // ================= Website lead (`visitors`, spec §2) =================
 // Caps enforced by the deployed security rules on `visitors` create:
-// visitorName<=120, phone 10..15, email<=160, message<=1000, purpose<=80,
+// visitorName<=120, phone 10..15, email<=160, message<=1000,
 // source must be 'Website' | 'Walk-in'.
 const cap = (value, max) => String(value ?? '').slice(0, max);
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -100,7 +100,6 @@ function buildVisitorLead({ name, phone, email = '', message = '', planId = '', 
     phone,
     email: cap(String(email || '').trim().toLowerCase(), 160),
     message: cap(String(message || ''), 1000),
-    purpose: 'Admission Inquiry',
     planId: cap(String(planId || '').trim(), 60),
     planName: cap(String(planName || '').trim(), 160),
     source: 'Website',
@@ -110,7 +109,6 @@ function buildVisitorLead({ name, phone, email = '', message = '', planId = '', 
     employeeId: '',
     visitDate: localDateStr(),
     visitTime: localTimeStr(),
-    termsAccepted: true,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -119,31 +117,54 @@ function buildVisitorLead({ name, phone, email = '', message = '', planId = '', 
 // ONE transaction = claim `uniqueness/sub_<key>` + create the lead, so a
 // retry / double-click can never produce two records. Admin SDK bypasses the
 // security rules, so no anonymous session is needed here.
+// ALSO claims `uniqueness/req_lead_<phone>` / `req_leadmail_<email>` so the
+// same person can never file a second enquiry (owner rule: one per number).
 async function saveVisitorLead(lead, submissionKey) {
   const key = String(submissionKey || '').trim() ||
     `web_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   const uniquenessRef = adminDb.collection('uniqueness').doc(`sub_${key}`);
   const visitorRef = adminDb.collection('visitors').doc();
+  const phone = lead.phone || '';
+  const email = lead.email || '';
+  const phoneRef = phone ? adminDb.collection('uniqueness').doc(`req_lead_${phone}`) : null;
+  const emailRef = email ? adminDb.collection('uniqueness').doc(`req_leadmail_${email}`) : null;
   return adminDb.runTransaction(async (tx) => {
+    // All reads before all writes.
     const claim = await tx.get(uniquenessRef);
+    const phoneSnap = phoneRef ? await tx.get(phoneRef) : null;
+    const emailSnap = emailRef ? await tx.get(emailRef) : null;
+
+    const prior = (phoneSnap && phoneSnap.exists && phoneSnap.data())
+      || (emailSnap && emailSnap.exists && emailSnap.data())
+      || null;
+    if (prior) {
+      const priorId = prior.visitorId ||
+        (prior.docPath ? String(prior.docPath).split('/').pop() : '');
+      return { id: priorId || '', deduped: true, duplicate: true };
+    }
+
     if (claim.exists) {
       const existing = claim.data() || {};
       const existingId = existing.visitorId ||
         (existing.docPath ? String(existing.docPath).split('/').pop() : '');
-      return { id: existingId || '', deduped: true };
+      return { id: existingId || '', deduped: true, duplicate: false };
     }
-    tx.set(uniquenessRef, {
-      kind: 'submission',
+
+    const stamp = {
       visitorId: visitorRef.id,
       docPath: visitorRef.path,
+      uid: '',
       createdAt: FieldValue.serverTimestamp(),
-    });
+    };
+    tx.set(uniquenessRef, { kind: 'submission', visitorId: stamp.visitorId, docPath: stamp.docPath, createdAt: stamp.createdAt });
+    if (phoneRef) tx.set(phoneRef, { kind: 'phone-index', ...stamp });
+    if (emailRef) tx.set(emailRef, { kind: 'email', ...stamp });
     tx.set(visitorRef, {
       ...lead,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { id: visitorRef.id, deduped: false };
+    return { id: visitorRef.id, deduped: false, duplicate: false };
   });
 }
 
@@ -154,7 +175,7 @@ async function notifyNewLead(lead, leadId) {
     await adminDb.collection('notifications').add({
       type: 'new-visitor-lead',
       title: 'New website lead',
-      body: `${lead.visitorName} (${lead.phone}) requested "${lead.planName}". Open Visitors → New leads.`,
+      body: `${lead.visitorName} (${lead.phone}) requested "${lead.planName || 'a plan'}". Open Visitors → New leads.`,
       visitorId: leadId,
       admissionId: leadId, // legacy alias so older readers still resolve
       studentId: '',
@@ -309,10 +330,12 @@ app.post('/api/bookings', async (req, res) => {
   } catch (e) {
     console.warn('Plan resolution notice:', e.message);
   }
-  if (!resolvedPlanName) resolvedPlanName = 'Monthly - ₹1,000';
+  if (!resolvedPlanName) resolvedPlanName = '';
 
-  // NOTE: no duplicate phone/email blocking from the website (contract §6) —
-  // the uniqueness/sub_ claim below only stops the SAME submission retrying.
+  // One enquiry per phone / per email: saveVisitorLead claims
+  // uniqueness/req_lead_<phone> and req_leadmail_<email> inside the same
+  // transaction as the lead, so a repeat submit writes NOTHING and returns
+  // duplicate:true (the response below explains why).
 
   if (!adminDb) {
     return res.status(503).json({ success: false, message: 'Booking service unavailable: backend not connected to CRM.' });
@@ -333,8 +356,11 @@ app.post('/api/bookings', async (req, res) => {
     console.log(`[ShreeJi] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone}) - ${resolvedPlanName}`);
     return res.status(201).json({
       success: true,
-      message: 'Request received — pending admin approval. We will email you once approved.',
-      booking: { id: saved.id, deduped: saved.deduped, ...lead },
+      duplicate: !!saved.duplicate,
+      message: saved.duplicate
+        ? 'We already have a request from this number — no second record was created. We will call you.'
+        : 'Request received — pending admin approval. We will email you once approved.',
+      booking: { id: saved.id, deduped: saved.deduped, duplicate: !!saved.duplicate, ...lead },
     });
   } catch (e) {
     console.error('Firestore lead save failed:', e.message);
@@ -364,7 +390,14 @@ app.post('/api/students', async (req, res) => {
     const saved = await saveVisitorLead(lead, submissionKey);
     if (!saved.deduped) await notifyNewLead(lead, saved.id);
     console.log(`[ShreeJi] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone})`);
-    res.status(201).json({ success: true, data: { id: saved.id, deduped: saved.deduped, ...lead } });
+    res.status(201).json({
+      success: true,
+      duplicate: !!saved.duplicate,
+      message: saved.duplicate
+        ? 'We already have a request from this number — no second record was created. We will call you.'
+        : 'Request received — pending admin approval. We will email you once approved.',
+      data: { id: saved.id, deduped: saved.deduped, duplicate: !!saved.duplicate, ...lead },
+    });
   } catch (e) {
     console.error('Firestore lead save failed:', e.message);
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });

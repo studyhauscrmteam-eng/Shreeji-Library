@@ -66,7 +66,7 @@ async function getLivePlans() {
 
 // ================= Website lead (`visitors`, spec §2) =================
 // Caps enforced by the deployed security rules on `visitors` create:
-// visitorName<=120, phone 10..15, email<=160, message<=1000, purpose<=80,
+// visitorName<=120, phone 10..15, email<=160, message<=1000,
 // source must be 'Website' | 'Walk-in'.
 const cap = (value, max) => String(value ?? '').slice(0, max);
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -83,7 +83,6 @@ function buildVisitorLead({ name, phone, email = '', message = '', planId = '', 
     phone,
     email: cap(String(email || '').trim().toLowerCase(), 160),
     message: cap(String(message || ''), 1000),
-    purpose: 'Admission Inquiry',
     planId: cap(String(planId || '').trim(), 60),
     planName: cap(String(planName || '').trim(), 160),
     source: 'Website',
@@ -93,7 +92,6 @@ function buildVisitorLead({ name, phone, email = '', message = '', planId = '', 
     employeeId: '',
     visitDate: localDateStr(),
     visitTime: localTimeStr(),
-    termsAccepted: true,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -161,7 +159,7 @@ async function notifyNewLead(lead, leadId) {
     await adminDb.collection('notifications').add({
       type: 'new-visitor-lead',
       title: 'New website lead',
-      body: `${lead.visitorName} (${lead.phone}) requested "${lead.planName}". Open Visitors → New leads.`,
+      body: `${lead.visitorName} (${lead.phone}) requested "${lead.planName || 'a plan'}". Open Visitors → New leads.`,
       visitorId: leadId,
       admissionId: leadId, // legacy alias so older readers still resolve
       studentId: '',
@@ -261,7 +259,7 @@ app.post('/api/bookings', async (req, res) => {
   }
 
   let resolvedPlanId = planId || '';
-  let resolvedPlanName = planName || plan || 'Monthly - ₹1,000';
+  let resolvedPlanName = planName || plan || '';
   try {
     const plans = await getLivePlans();
     let match = null;
@@ -324,7 +322,14 @@ app.post('/api/students', async (req, res) => {
     const saved = await saveVisitorLead(lead, submissionKey);
     if (!saved.deduped) await notifyNewLead(lead, saved.id);
     console.log(`[ShreeJi Vercel] Website lead -> visitors/${saved.id}: ${lead.visitorName} (${cleanPhone})`);
-    res.status(201).json({ success: true, data: { id: saved.id, deduped: saved.deduped, ...lead } });
+    res.status(201).json({
+      success: true,
+      duplicate: !!saved.duplicate,
+      message: saved.duplicate
+        ? 'We already have a request from this number — no second record was created. We will call you.'
+        : 'Request received — pending admin approval. We will email you once approved.',
+      data: { id: saved.id, deduped: saved.deduped, duplicate: !!saved.duplicate, ...lead },
+    });
   } catch {
     res.status(500).json({ success: false, message: 'Signup failed. Please try again.' });
   }
