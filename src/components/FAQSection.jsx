@@ -2,12 +2,20 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useSiteContent } from '../context/SiteContentContext';
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState(0);
   const { t } = useLanguage();
+  const { content } = useSiteContent() || {};
 
-  const faqs = [
+  // CRM-editable FAQs (Website → Homepage Content). Non-empty remote list
+  // wins; otherwise the built-in translated set.
+  const remoteFaqs = content && Array.isArray(content.faqs)
+    ? content.faqs.filter((f) => f && (f.q || f.a)).map((f) => ({ question: f.q || '', answer: f.a || '' }))
+    : [];
+
+  const faqs = remoteFaqs.length > 0 ? remoteFaqs : [
     {
       question: t('faq.q1'),
       answer: t('faq.a1')

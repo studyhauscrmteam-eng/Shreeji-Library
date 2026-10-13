@@ -137,6 +137,19 @@ export const fetchDirectPlans = async () => {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 };
 
+// Homepage content edited in the CRM (Website → Homepage Content tab):
+// settings/website_content.content = { hero, disciplines, faqs, testimonials }.
+// Returns null when missing/unreadable — every component falls back to its
+// built-in defaults, so the site never breaks offline.
+export const fetchSiteContent = async () => {
+  if (!db) throw new Error('Firebase is not configured.');
+  await ensureAnon();
+  const snap = await getDoc(doc(db, 'settings', 'website_content'));
+  if (!snap.exists()) return null;
+  const data = snap.data() || {};
+  return (data.content && typeof data.content === 'object') ? data.content : null;
+};
+
 // Canonical CRM seat format: A01–A68, B01–B40 (uppercase letter + digits).
 // Accepts DB-exact ("A01") and layout ("A1") spellings for checking, but the
 // raw DB value is always what gets sent.

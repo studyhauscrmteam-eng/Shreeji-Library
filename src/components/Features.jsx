@@ -118,8 +118,8 @@ export default function Features() {
       icon: Clock, 
       title: isGu ? 'અનુકૂળ સમયપત્રક' : 'Flexible Timings',
       image: '/hero-study-hall.webp',
-      descEn: 'Open 17 hours daily (06:00 AM – 11:00 PM), 365 days a year including Sundays & holidays.',
-      descGu: 'રવિવાર અને જાહેર રજાઓ સહિત દરરોજ સવારે ૦૬:૦૦ થી રાત્રે ૧૧:૦૦ સુધી ખુલ્લી રહે છે.'
+      descEn: 'Open 24/7 — 24 hours a day, all 365 days a year including Sundays & holidays.',
+      descGu: 'રવિવાર અને જાહેર રજાઓ સહિત આખું વર્ષ ૨૪x૭ — દિવસના ૨૪ કલાક ખુલ્લી રહે છે.'
     },
     { 
       icon: Wallet, 

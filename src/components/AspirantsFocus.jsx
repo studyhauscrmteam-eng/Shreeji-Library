@@ -2,12 +2,19 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { GraduationCap, Target } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useSiteContent } from '../context/SiteContentContext';
 
 export default function AspirantsFocus() {
   const { language, t } = useLanguage();
+  const { content } = useSiteContent() || {};
   const isGu = language === 'gu';
 
-  const exams = isGu ? [
+  // CRM-editable discipline cards (Website → Homepage Content). Non-empty
+  // remote list wins for both languages; otherwise the classic hardcoded set.
+  const remoteDiscs = content && Array.isArray(content.disciplines) ? content.disciplines.filter((d) => d && (d.title || d.desc)) : [];
+  const exams = remoteDiscs.length > 0
+    ? remoteDiscs.map((d) => ({ title: d.title || '', desc: d.desc || '' }))
+    : isGu ? [
     { title: 'UPSC સિવિલ સર્વિસીસ', desc: 'IAS, IPS, IFS અને રાજ્ય PSC પ્રિલિમ્સ-મેઇન્સ માટે શાંત ડેસ્ક' },
     { title: 'GPSC વર્ગ ૧ અને ૨', desc: 'ગુજરાત વહીવટી સેવા અને સ્પર્ધાત્મક પરીક્ષાઓની સંપૂર્ણ તૈયારી' },
     { title: 'CA ફાઇનલ અને ઇન્ટર', desc: 'ચાર્ટર્ડ એકાઉન્ટન્સી અને ઓડિટ રિવિઝન માટે સળંગ ૧૨+ કલાક એકાગ્રતા' },

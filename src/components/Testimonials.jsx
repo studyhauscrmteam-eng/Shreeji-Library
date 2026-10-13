@@ -2,110 +2,91 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Star, Quote, CheckCircle } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useSiteContent } from '../context/SiteContentContext';
+
+// Boys-only library: only boys' reviews are shown. Reviews are CRM-editable
+// (Website → Homepage Content); these three are the offline fallback.
+const BOY_REVIEWS_GU = [
+  {
+    name: 'આરવ મહેતા',
+    exam: 'GPSC વર્ગ-૧ રેન્ક ૧૪',
+    initials: 'AM',
+    bgColor: 'bg-[#983132]',
+    text: 'શ્રીજી રીડિંગ લાઇબ્રેરીએ મને જે શાંતિ અને શિસ્ત આપી તે ઘરમાં ક્યારેય શક્ય ન હતી. ફિક્સ સીટ અને ૨૪°C એસીને લીધે દરરોજ ૧૦+ કલાક સળંગ અભ્યાસ કરી શકાયો.',
+    stars: 5
+  },
+  {
+    name: 'દીપક જોશી',
+    exam: 'UPSC મેઇન્સ ક્વોલિફાઇડ',
+    initials: 'DJ',
+    bgColor: 'bg-[#201E1F]',
+    text: 'રોજ સવારે આવીને પોતાની ફિક્સ સીટ પર બેસવાથી સમયનો એક પણ મિનિટ બગડતો નથી. સ્ટાફ ખૂબ સારો છે અને શાંતિનું ચુસ્ત પાલન કરાવે છે.',
+    stars: 5
+  },
+  {
+    name: 'રોહિત પટેલ',
+    exam: 'JEE એડવાન્સ્ડ રેન્ક 512',
+    initials: 'RP',
+    bgColor: 'bg-[#B94E18]',
+    text: 'દરેક ડેસ્ક પર હાઇ સ્પીડ વાઇ-ફાઇ અને પાવર સોકેટ હોવાથી રોજના ૧૨ કલાક સુધી ઓનલાઇન લેક્ચર્સ અને ટેસ્ટ સીરીઝ સોલ્વ કરી શક્યો.',
+    stars: 5
+  }
+];
+
+const BOY_REVIEWS_EN = [
+  {
+    name: 'Aarav Mehta',
+    exam: 'GPSC Class-1 Rank 14',
+    initials: 'AM',
+    bgColor: 'bg-[#983132]',
+    text: 'ShreeJi Reading Library gave me the quiet discipline I could never find at home. Having a fixed assigned seat and continuous 24°C AC kept me in peak flow for 10+ hours every day.',
+    stars: 5
+  },
+  {
+    name: 'Deepak Joshi',
+    exam: 'UPSC Mains Qualified',
+    initials: 'DJ',
+    bgColor: 'bg-gradient-to-br from-[#EB6A30] to-[#983132]',
+    text: 'Having my personal desk set up every morning meant I never wasted a single minute. The staff is polite and strictly maintains silence across all reading rooms.',
+    stars: 5
+  },
+  {
+    name: 'Rohit Patel',
+    exam: 'JEE Advanced Rank 512',
+    initials: 'RP',
+    bgColor: 'bg-[#B94E18]',
+    text: 'Super high speed dual fiber Wi-Fi and power sockets at every desk. Solved physics problems for 12 hours straight every single day.',
+    stars: 5
+  }
+];
+
+const AVATAR_COLORS = ['bg-[#983132]', 'bg-[#B94E18]', 'bg-[#201E1F]', 'bg-gradient-to-br from-[#EB6A30] to-[#983132]'];
+const initialsOf = (name) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '??';
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export default function Testimonials() {
   const { language, t } = useLanguage();
+  const { content } = useSiteContent() || {};
   const isGu = language === 'gu';
 
-  const reviews = isGu ? [
-    {
-      name: 'આરવ મહેતા',
-      exam: 'GPSC વર્ગ-૧ રેન્ક ૧૪',
-      initials: 'AM',
-      bgColor: 'bg-[#983132]',
-      text: 'શ્રીજી રીડિંગ લાઇબ્રેરીએ મને જે શાંતિ અને શિસ્ત આપી તે ઘરમાં ક્યારેય શક્ય ન હતી. ફિક્સ સીટ અને ૨૪°C એસીને લીધે દરરોજ ૧૦+ કલાક સળંગ અભ્યાસ કરી શકાયો.',
-      stars: 5
-    },
-    {
-      name: 'કાવ્યા શાહ',
-      exam: 'CA ફાઇનલ ટોપ સ્કોરર',
-      initials: 'KS',
-      bgColor: 'bg-[#B94E18]',
-      text: 'અહીંના એકોસ્ટિક ક્યુબિકલ્સ અદ્ભુત છે. શૂન્ય અવાજ, આંખોને આરામદાયક LED લાઇટ, લેક્ચર્સ માટે ફાસ્ટ વાઇ-ફાઇ અને સુરક્ષિત લોકર. અભ્યાસ માટે સર્વશ્રેષ્ઠ જગ્યા!',
-      stars: 5
-    },
-    {
-      name: 'દીપક જોશી',
-      exam: 'UPSC મેઇન્સ ક્વોલિફાઇડ',
-      initials: 'DJ',
-      bgColor: 'bg-[#201E1F]',
-      text: 'રોજ સવારે આવીને પોતાની ફિક્સ સીટ પર બેસવાથી સમયનો એક પણ મિનિટ બગડતો નથી. સ્ટાફ ખૂબ સારો છે અને શાંતિનું ચુસ્ત પાલન કરાવે છે.',
-      stars: 5
-    },
-    {
-      name: 'અનન્યા શર્મા',
-      exam: 'NEET AIR 340',
-      initials: 'AS',
-      bgColor: 'bg-[#983132]',
-      text: 'શાંત વાતાવરણના કારણે હું ફોન કે અન્ય કોઈ ખલેલ વગર બાયોલોજીનો અભ્યાસ કરી શકી. ઓપન ટેરેસ પર ચા-નાસ્તાનો બ્રેક ખૂબ તાજગી આપે છે!',
-      stars: 5
-    },
-    {
-      name: 'રોહિત પટેલ',
-      exam: 'JEE એડવાન્સ્ડ રેન્ક 512',
-      initials: 'RP',
-      bgColor: 'bg-[#B94E18]',
-      text: 'દરેક ડેસ્ક પર હાઇ સ્પીડ વાઇ-ફાઇ અને પાવર સોકેટ હોવાથી રોજના ૧૨ કલાક સુધી ઓનલાઇન લેક્ચર્સ અને ટેસ્ટ સીરીઝ સોલ્વ કરી શક્યો.',
-      stars: 5
-    },
-    {
-      name: 'પ્રિયાંશી વર્મા',
-      exam: 'SSC CGL સિલેક્ટેડ',
-      initials: 'PV',
-      bgColor: 'bg-[#201E1F]',
-      text: 'સ્વચ્છતા, CCTV સુરક્ષા, હાઇજેનિક વૉશરૂમ અને સપોર્ટિવ મેનેજમેન્ટ. સ્પર્ધાત્મક પરીક્ષાઓની તૈયારી માટે આ સાચું અભ્યાસ મંદિર છે.',
-      stars: 5
-    }
-  ] : [
-    {
-      name: 'Aarav Mehta',
-      exam: 'GPSC Class-1 Rank 14',
-      initials: 'AM',
-      bgColor: 'bg-[#983132]',
-      text: 'ShreeJi Reading Library gave me the quiet discipline I could never find at home. Having a fixed assigned seat and continuous 24°C AC kept me in peak flow for 10+ hours every day.',
-      stars: 5
-    },
-    {
-      name: 'Kavya Shah',
-      exam: 'CA Final Top Scorer',
-      initials: 'KS',
-      bgColor: 'bg-[#B94E18]',
-      text: 'The acoustic cubicles are incredible. Absolutely zero noise, dimmable desk lamp, fast dual fiber Wi-Fi for video lectures, and safe locker. Best reading space by far!',
-      stars: 5
-    },
-    {
-      name: 'Deepak Joshi',
-      exam: 'UPSC Mains Qualified',
-      initials: 'DJ',
-      bgColor: 'bg-gradient-to-br from-[#EB6A30] to-[#983132]',
-      text: 'Having my personal desk set up every morning meant I never wasted a single minute. The staff is polite and strictly maintains silence across all reading rooms.',
-      stars: 5
-    },
-    {
-      name: 'Ananya Sharma',
-      exam: 'NEET AIR 340',
-      initials: 'AS',
-      bgColor: 'bg-[#983132]',
-      text: 'The peaceful atmosphere allowed me to focus on biology marathons without any phone or noise distractions. The complimentary tea/coffee breaks are a great refresh!',
-      stars: 5
-    },
-    {
-      name: 'Rohit Patel',
-      exam: 'JEE Advanced Rank 512',
-      initials: 'RP',
-      bgColor: 'bg-[#B94E18]',
-      text: 'Super high speed dual fiber Wi-Fi and power sockets at every desk. Solved physics problems for 12 hours straight every single day.',
-      stars: 5
-    },
-    {
-      name: 'Priyanshi Verma',
-      exam: 'SSC CGL Selected',
-      initials: 'PV',
-      bgColor: 'bg-gradient-to-br from-[#EB6A30] to-[#983132]',
-      text: 'Clean, highly secure with CCTV, clean washrooms, and very supportive management. Truly a sanctuary for competitive exam preparation.',
-      stars: 5
-    }
-  ];
+  // CRM list wins when non-empty; Gujarati uses textGu with English fallback.
+  const remote = content && Array.isArray(content.testimonials)
+    ? content.testimonials.filter((r) => r && (r.name || r.text))
+    : [];
+  const reviews = remote.length > 0
+    ? remote.map((r, i) => ({
+        name: r.name || 'Student',
+        exam: r.exam || '',
+        initials: initialsOf(r.name),
+        bgColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+        text: (isGu && r.textGu) ? r.textGu : (r.text || ''),
+        stars: Math.max(1, Math.min(5, Number(r.stars) || 5)),
+      }))
+    : (isGu ? BOY_REVIEWS_GU : BOY_REVIEWS_EN);
 
   // Duplicate list to create a seamless infinite horizontal loop
   const doubleReviews = [...reviews, ...reviews];

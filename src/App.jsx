@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
 import { PlansProvider } from './context/PlansContext';
+import { SiteContentProvider } from './context/SiteContentContext';
 import Preloader from './components/Preloader';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -116,7 +117,9 @@ export default function App() {
   return (
     <LanguageProvider>
       <PlansProvider>
-        <MainApp />
+        <SiteContentProvider>
+          <MainApp />
+        </SiteContentProvider>
       </PlansProvider>
     </LanguageProvider>
   );
