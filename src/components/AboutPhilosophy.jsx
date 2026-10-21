@@ -152,7 +152,7 @@ export default function AboutPhilosophy() {
               <div className="absolute inset-0 bg-gradient-to-t from-[#201E1F]/85 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
                 <div className="flex items-center gap-2 text-[#EB6A30] text-xs font-bold uppercase tracking-wider mb-1">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>AUTHENTIC STUDY ENVIRONMENT</span>
+                  <span>{isGu ? 'વાસ્તવિક અભ્યાસ વાતાવરણ' : 'AUTHENTIC STUDY ENVIRONMENT'}</span>
                 </div>
                 <h3 className="text-lg font-bold">
                   {isGu ? 'વાસ્તવિક સાયલન્ટ સ્ટડી હોલ' : 'Main Silent Study Hall'}

@@ -70,7 +70,7 @@ export default function Footer() {
             <div className="text-sm text-[#F5E4E4]/85 space-y-1">
               <p className="font-semibold text-white">{isGu ? 'સોમવાર – રવિવાર (સાતેય દિવસ)' : 'Mon – Sun (7 Days)'}</p>
               <p className="text-[#983132] font-bold bg-[#F5E4E4] px-3 py-1 rounded-full inline-block text-xs">
-                24/7 Open · 24 Hours Daily
+                {isGu ? '૨૪/૭ ખુલ્લું · ૨૪ કલાક દૈનિક' : '24/7 Open · 24 Hours Daily'}
               </p>
               <p className="pt-2 text-xs text-[#F5E4E4]/85">
                 {isGu ? 'સંપર્ક નંબર:' : 'Contact:'} <a href="tel:+916353321530" className="text-white font-bold hover:text-[#EB6A30]">+91 63533 21530</a>
@@ -93,9 +93,9 @@ export default function Footer() {
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#F5E4E4]/80 gap-4">
           <p>{t('footer.copyright')}</p>
           <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
-            <span>Air Conditioned</span>
+            <span>{isGu ? 'વાતાનુકૂલિત (AC)' : 'Air Conditioned'}</span>
             <span>•</span>
-            <span>Silent Study Desks</span>
+            <span>{isGu ? 'શાંત વ્યક્તિગત ડેસ્ક' : 'Silent Study Desks'}</span>
             <span>•</span>
             <a href="/privacy.html" className="hover:text-white transition-colors underline">
               {isGu ? 'પ્રાઇવસી પોલિસી' : 'Privacy Policy'}

@@ -176,8 +176,8 @@ export default function LocationContact() {
               
               <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-[#F5E4E4] flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-xs text-[#201E1F]">ShreeJi Reading Library</p>
-                  <p className="text-[11px] text-[#201E1F]/60">Air Conditioned • 24/7 Open</p>
+                  <p className="font-bold text-xs text-[#201E1F]">{isGu ? 'શ્રીજી રીડિંગ લાઇબ્રેરી' : 'ShreeJi Reading Library'}</p>
+                  <p className="text-[11px] text-[#201E1F]/60">{isGu ? 'વાતાનુકૂલિત (AC) • ૨૪/૭ ખુલ્લું' : 'Air Conditioned • 24/7 Open'}</p>
                 </div>
                 <a 
                   href="https://www.google.com/search?sca_esv=ac3607b23cf7e9a0&sxsrf=APpeQntzE3Txa1taL8sOiVsADw9bZwDHIg:1788501095902&kgmid=/g/11p_706vtb&q=Shreeji+Reading+Library&shem=dlvs1,epsd1,ltae,rimspwouoe&shndl=30&source=sh/x/loc/uni/m1/1&kgs=5b7c2b0bc508eb50&utm_source=dlvs1,epsd1,ltae,rimspwouoe,sh/x/loc/uni/m1/1"

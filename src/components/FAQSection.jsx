@@ -6,13 +6,17 @@ import { useSiteContent } from '../context/SiteContentContext';
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState(0);
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isGu = language === 'gu';
   const { content } = useSiteContent() || {};
 
   // CRM-editable FAQs (Website → Homepage Content). Non-empty remote list
   // wins; otherwise the built-in translated set.
   const remoteFaqs = content && Array.isArray(content.faqs)
-    ? content.faqs.filter((f) => f && (f.q || f.a)).map((f) => ({ question: f.q || '', answer: f.a || '' }))
+    ? content.faqs.filter((f) => f && (f.q || f.a)).map((f) => ({
+        question: (isGu && f.qGu) ? f.qGu : (f.q || ''),
+        answer: (isGu && f.aGu) ? f.aGu : (f.a || '')
+      }))
     : [];
 
   const faqs = remoteFaqs.length > 0 ? remoteFaqs : [

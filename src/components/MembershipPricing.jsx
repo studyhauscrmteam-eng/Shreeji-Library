@@ -120,7 +120,7 @@ export default function MembershipPricing({ onSelectPlan }) {
                       <span className="text-2xl font-bold text-[#201E1F]">₹</span>
                       <span className="text-5xl font-extrabold text-[#201E1F] tracking-tight">{plan.price}</span>
                       {plan.duration && (
-                        <span className="text-sm font-medium text-[#201E1F]/60 ml-1">/ {plan.duration}</span>
+                        <span className="text-sm font-medium text-[#201E1F]/60 ml-1">/ {isGu ? (plan.durationGu || plan.duration) : plan.duration}</span>
                       )}
                     </div>
 

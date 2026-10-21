@@ -13,7 +13,7 @@ export default function AspirantsFocus() {
   // remote list wins for both languages; otherwise the classic hardcoded set.
   const remoteDiscs = content && Array.isArray(content.disciplines) ? content.disciplines.filter((d) => d && (d.title || d.desc)) : [];
   const exams = remoteDiscs.length > 0
-    ? remoteDiscs.map((d) => ({ title: d.title || '', desc: d.desc || '' }))
+    ? remoteDiscs.map((d) => ({ title: (isGu && d.titleGu) ? d.titleGu : (d.title || ''), desc: (isGu && d.descGu) ? d.descGu : (d.desc || '') }))
     : isGu ? [
     { title: 'UPSC સિવિલ સર્વિસીસ', desc: 'IAS, IPS, IFS અને રાજ્ય PSC પ્રિલિમ્સ-મેઇન્સ માટે શાંત ડેસ્ક' },
     { title: 'GPSC વર્ગ ૧ અને ૨', desc: 'ગુજરાત વહીવટી સેવા અને સ્પર્ધાત્મક પરીક્ષાઓની સંપૂર્ણ તૈયારી' },

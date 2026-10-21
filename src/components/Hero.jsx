@@ -5,16 +5,17 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSiteContent } from '../context/SiteContentContext';
 
 export default function Hero({ onOpenBooking }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isGu = language === 'gu';
   const { content } = useSiteContent() || {};
   // CRM-editable hero (Website → Homepage Content). Fallbacks keep the
   // classic look when Firestore is unreachable.
   const hero = (content && content.hero) || {};
-  const statStudents = hero.studentCount || '800+';
-  const statHours = hero.hoursValue || '24/7';
-  const statRating = hero.rating || '4.9 ★';
+  const statStudents = hero.studentCount || (isGu ? '૮૦૦+' : '800+');
+  const statHours = hero.hoursValue || (isGu ? '૨૪/૭' : '24/7');
+  const statRating = hero.rating || (isGu ? '૪.૯ ★' : '4.9 ★');
   const boysBadgeOn = hero.boysBadgeOn !== false;
-  const boysBadgeText = hero.boysBadgeText || 'Only for Boys';
+  const boysBadgeText = (isGu && hero.boysBadgeTextGu) ? hero.boysBadgeTextGu : (hero.boysBadgeText || (isGu ? 'માત્ર ભાઈઓ માટે' : 'Only for Boys'));
 
   return (
     <section id="top" className="relative min-h-screen pt-24 sm:pt-28 pb-12 sm:pb-16 flex flex-col justify-between text-white overflow-hidden max-w-full">
@@ -43,10 +44,10 @@ export default function Hero({ onOpenBooking }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="inline-flex items-center gap-2 bg-[#983132]/60 border border-[#EB6A30]/50 text-[#FFF0E8] px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-6 sm:mb-8 backdrop-blur-md self-start max-w-full"
+          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-6 sm:mb-8 backdrop-blur-md self-start max-w-full border ${hero.intakeOpen !== false ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-[#983132]/70 border-[#EB6A30]/60 text-[#FFF0E8]'}`}
         >
-          <span className="w-2 h-2 rounded-full bg-[#EB6A30] animate-pulse shrink-0" />
-          <span className="truncate">{t('hero.badge')}</span>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${hero.intakeOpen !== false ? 'bg-emerald-400 animate-pulse' : 'bg-[#EB6A30]'}`} />
+          <span className="truncate">{hero.intakeOpen !== false ? ((isGu && hero.intakeBadgeTextGu) ? hero.intakeBadgeTextGu : (hero.intakeBadgeText || t('hero.badge') || (isGu ? 'નવા વિદ્યાર્થીઓ માટે એડમિશન શરૂ છે' : 'Now accepting new student intake'))) : ((isGu && hero.intakeClosedTextGu) ? hero.intakeClosedTextGu : (hero.intakeClosedText || (isGu ? 'હાલમાં પ્રવેશ બંધ છે' : 'Intake currently closed')))}</span>
         </motion.div>
 
         {/* Boys-only ribbon (CRM toggle) */}

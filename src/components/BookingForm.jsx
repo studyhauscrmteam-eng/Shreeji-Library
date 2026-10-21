@@ -409,7 +409,7 @@ export default function BookingForm({ selectedPlan }) {
                         {isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn}
                       </span>
                       <span className="shrink-0 text-xs font-bold text-white bg-[#983132] px-2.5 py-1 rounded-full">
-                        ₹{selectedPlanObj.price}{selectedPlanObj.duration ? ` · ${selectedPlanObj.duration}` : ''}
+                        ₹{selectedPlanObj.price}{selectedPlanObj.duration ? ` · ${isGu ? (selectedPlanObj.durationGu || selectedPlanObj.duration) : selectedPlanObj.duration}` : ''}
                       </span>
                     </span>
                   ) : (
@@ -472,7 +472,7 @@ export default function BookingForm({ selectedPlan }) {
                                 </span>
                               </span>
                               <span className="shrink-0 text-xs font-extrabold text-[#983132]">
-                                ₹{p.price}{p.duration ? ` / ${p.duration}` : ''}
+                                ₹{p.price}{p.duration ? ` / ${isGu ? (p.durationGu || p.duration) : p.duration}` : ''}
                               </span>
                             </button>
                           </li>

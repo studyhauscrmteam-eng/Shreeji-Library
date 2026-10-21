@@ -14,15 +14,26 @@ const mapBackendPlanToWebsite = (backendPlan, index, total) => {
   // Feature the most expensive plan (or the single plan) by default.
   const featured = total === 1 ? true : index === total - 1;
 
+  const formatDurationGu = (d) => {
+    if (!d) return '';
+    const str = String(d).trim();
+    if (/24\s*[\/x]\s*7/i.test(str)) return '૨૪/૭ દૈનિક · ૨૪ કલાક ખુલ્લું';
+    if (/1\s*month/i.test(str)) return '૧ મહિનો';
+    if (/month/i.test(str)) return str.replace(/month/gi, 'મહિનો');
+    return str;
+  };
+  const durationGu = (backendPlan.durationGu || '').trim() || formatDurationGu(duration);
+  const seatTypeGu = seatType === 'Fixed' ? 'ફિક્સ્ડ' : seatType === 'Rotational' ? 'રોટેશનલ' : seatType === 'Night' ? 'નાઇટ શિફ્ટ' : seatType;
+
   const benefitsEn = [];
   const benefitsGu = [];
   if (duration) {
     benefitsEn.push(`${duration} membership validity`);
-    benefitsGu.push(`${duration} મેમ્બરશિપ માન્યતા`);
+    benefitsGu.push(`${durationGu} મેમ્બરશિપ માન્યતા`);
   }
   if (seatType) {
     benefitsEn.push(`${seatType} reserved seat`);
-    benefitsGu.push(`${seatType} રિઝર્વ્ડ સીટ`);
+    benefitsGu.push(`${seatTypeGu} રિઝર્વ્ડ સીટ`);
   }
   benefitsEn.push(`One-time payment of ₹${priceNum}`);
   benefitsGu.push(`₹${priceNum} એક વખતની ચુકવણી`);
@@ -38,22 +49,26 @@ const mapBackendPlanToWebsite = (backendPlan, index, total) => {
     benefitsGu.push(...backendPlan.benefitsGu);
   }
 
+  const badgeEn = (backendPlan.badge || backendPlan.badgeEn || '').trim() || (featured ? 'Recommended' : '');
+  const badgeGu = (backendPlan.badgeGu || '').trim() || (featured ? 'સૌથી વધુ પસંદગી' : (badgeEn ? 'ભલામણ કરેલ' : ''));
+
   return {
     id: backendPlan.id,
     nameEn: name,
-    nameGu: name,
-    taglineEn: [duration, seatType ? `${seatType} seat` : ''].filter(Boolean).join(' · '),
-    taglineGu: [duration, seatType ? `${seatType} સીટ` : ''].filter(Boolean).join(' · '),
+    nameGu: (backendPlan.nameGu || '').trim() || name,
+    taglineEn: (backendPlan.taglineEn || '').trim() || [duration, seatType ? `${seatType} seat` : ''].filter(Boolean).join(' · '),
+    taglineGu: (backendPlan.taglineGu || '').trim() || [durationGu, seatType ? `${seatTypeGu} સીટ` : ''].filter(Boolean).join(' · '),
     price: String(priceNum),
     duration,
+    durationGu,
     seatType,
     status: backendPlan.status || 'Active',
     // Per-plan seat selection flag from the CRM. Missing flag = view-only.
     seatPreference: backendPlan.seatPreference === true,
     notes,
     featured,
-    badgeEn: featured ? 'Recommended' : '',
-    badgeGu: featured ? 'સૌથી વધુ પસંદગી' : '',
+    badgeEn,
+    badgeGu,
     benefitsEn,
     benefitsGu,
   };

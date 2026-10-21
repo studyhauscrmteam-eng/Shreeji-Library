@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Check } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 // Official room geometry (port of the CRM seat map). Ground: A1–A68,
 // First: B1–B40. `null` = structural gap (aisle/door space).
@@ -101,6 +102,8 @@ const GapTile = ({ large = false }) => <div className={`${large ? 'h-16' : 'h-11
  */
 export default function SeatMapPicker({ seats = [], selectable = false, selectedSeatId = null, onSelect, large = false }) {
   const [floor, setFloor] = useState('Ground Floor');
+  const { language } = useLanguage();
+  const isGu = language === 'gu';
 
   const byId = useMemo(() => {
     const m = new Map();
@@ -138,19 +141,19 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
         <div className="flex items-center gap-3 text-[13px] font-bold uppercase tracking-[0.8px] text-[#201E1F]/55">
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-[4px] bg-white border-[1.5px] border-emerald-400" />
-            Free
+            {isGu ? 'ખાલી' : 'Free'}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-[4px] bg-[#F5E4E4] border border-red-200" />
-            Taken
+            {isGu ? 'ભરેલી' : 'Taken'}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-[4px] bg-[#EB6A30]" />
-            Yours
+            {isGu ? 'પસંદ કરેલ' : 'Yours'}
           </span>
         </div>
         <div className="inline-flex items-center gap-1.5">
-          <span className="text-[13px] font-bold uppercase tracking-[0.8px] text-[#201E1F]/45">Floor</span>
+          <span className="text-[13px] font-bold uppercase tracking-[0.8px] text-[#201E1F]/45">{isGu ? 'માળ' : 'Floor'}</span>
           <div className="inline-flex items-center gap-1 bg-[#F5E4E4] p-1 rounded-full">
             {['Ground Floor', 'First Floor'].map((f) => (
               <button
@@ -161,7 +164,7 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
                   floor === f ? 'bg-[#983132] text-white shadow' : 'text-[#201E1F]/50 hover:text-[#201E1F]'
                 }`}
               >
-                {f.replace(' Floor', '')}
+                {f === 'Ground Floor' ? (isGu ? 'ગ્રાઉન્ડ' : 'Ground') : (isGu ? 'પહેલો માળ' : 'First')}
               </button>
             ))}
           </div>
@@ -170,16 +173,16 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
 
       {/* Seat count — centered, separate from color legend */}
       <p className="mb-3 text-center text-[15px] font-bold text-[#201E1F]/70">
-        <span className="font-extrabold text-emerald-600 text-[17px]">{avail}</span> Free
+        <span className="font-extrabold text-emerald-600 text-[17px]">{avail}</span> {isGu ? 'ખાલી' : 'Free'}
         <span className="mx-2 text-[#201E1F]/25">•</span>
-        <span className="font-extrabold text-[#201E1F]/80 text-[17px]">{floorSeats.length - avail}</span> Taken
+        <span className="font-extrabold text-[#201E1F]/80 text-[17px]">{floorSeats.length - avail}</span> {isGu ? 'બુક થયેલી' : 'Taken'}
       </p>
 
       {/* Map */}
       {useRoom ? (
         <div className="relative rounded-2xl border border-[#F5E4E4] bg-white px-3 pt-9 pb-12 sm:px-4 shadow-[inset_0_2px_12px_rgba(152,49,50,0.05)]">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#FFF0E8] border border-[#F5E4E4] border-t-0 px-5 py-1 rounded-b-xl text-[11px] font-extrabold tracking-[2px] text-[#983132]">
-            DOOR
+            {isGu ? 'પ્રવેશ દ્વાર' : 'DOOR'}
           </div>
           <div className={`flex justify-center ${large ? 'gap-3 sm:gap-3.5' : 'gap-2 sm:gap-2.5'}`}>
             {cols.map((col, ci) => (
@@ -205,7 +208,7 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
           <div className="absolute bottom-0 left-0 right-0 flex justify-around pointer-events-none">
             {['TOILET-1', 'TOILET-2'].map((t) => (
               <div key={t} className="bg-[#FFF0E8] border border-[#F5E4E4] border-b-0 px-5 py-1 rounded-t-xl text-[11px] font-extrabold tracking-[2px] text-[#983132]/70">
-                {t}
+                {t === 'TOILET-1' ? (isGu ? 'વોશરૂમ-૧' : 'TOILET-1') : (isGu ? 'વોશરૂમ-૨' : 'TOILET-2')}
               </div>
             ))}
           </div>
@@ -230,19 +233,19 @@ export default function SeatMapPicker({ seats = [], selectable = false, selected
       {/* Selection status */}
       <div className="mt-3 min-h-[20px] text-[13px]">
         {floorSeats.length === 0 ? (
-          <p className="text-[#201E1F]/45">No seats on this floor yet.</p>
+          <p className="text-[#201E1F]/45">{isGu ? 'આ માળ પર હજુ સુધી કોઈ સીટ નથી.' : 'No seats on this floor yet.'}</p>
         ) : selectedSeat ? (
           <p className="text-[#201E1F]/75">
             <span className="font-mono font-extrabold text-[#983132]">{selectedSeat.seatNumber}</span>
-            <span className="text-[#201E1F]/45"> · {floor}</span>
+            <span className="text-[#201E1F]/45"> · {isGu ? (floor === 'Ground Floor' ? 'ગ્રાઉન્ડ ફ્લોર' : 'પહેલો માળ') : floor}</span>
             <button type="button" onClick={() => onSelect(null)} className="ml-2 underline underline-offset-2 text-[#201E1F]/45 hover:text-[#983132] transition-colors">
-              Change
+              {isGu ? 'બદલો' : 'Change'}
             </button>
           </p>
         ) : selectable ? (
-          <p className="text-[#201E1F]/45">Pick any free desk — the admin confirms it at approval.</p>
+          <p className="text-[#201E1F]/45">{isGu ? 'કોઈપણ ખાલી ડેસ્ક પસંદ કરો — એડમિન મંજૂરી સમયે કન્ફર્મ કરશે.' : 'Pick any free desk — the admin confirms it at approval.'}</p>
         ) : (
-          <p className="text-[#201E1F]/45">View-only for this plan — the admin assigns your seat at approval.</p>
+          <p className="text-[#201E1F]/45">{isGu ? 'આ પ્લાન માટે માત્ર જોઈ શકાશે — એડમિન મંજૂરી સમયે સીટ ફાળવશે.' : 'View-only for this plan — the admin assigns your seat at approval.'}</p>
         )}
       </div>
     </div>

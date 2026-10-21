@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cookie } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const STORAGE_KEY = 'shreeji_cookie_consent';
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
+  const { language } = useLanguage();
+  const isGu = language === 'gu';
 
   useEffect(() => {
     try {
@@ -42,14 +45,26 @@ export default function CookieConsent() {
               <Cookie className="w-5 h-5 text-[#EB6A30]" />
             </div>
             <div className="text-xs leading-relaxed text-white/85">
-              <p className="font-bold text-white text-sm mb-1">We value your privacy</p>
+              <p className="font-bold text-white text-sm mb-1">
+                {isGu ? 'અમે તમારી ગોપનીયતાનું સન્માન કરીએ છીએ' : 'We value your privacy'}
+              </p>
               <p>
-                We use cookies to improve your browsing experience and analyse site
-                traffic. Read our{' '}
-                <a href="/privacy.html" className="underline text-[#EB6A30] hover:text-white">
-                  Privacy Policy
-                </a>
-                .
+                {isGu ? (
+                  <>
+                    અમે તમારા બ્રાઉઝિંગ અનુભવને સુધારવા અને ટ્રાફિકનું વિશ્લેષણ કરવા કૂકીઝનો ઉપયોગ કરીએ છીએ. અમારી{' '}
+                    <a href="/privacy.html" className="underline text-[#EB6A30] hover:text-white">
+                      પ્રાઇવસી પોલિસી
+                    </a>{' '}
+                    વાંચો.
+                  </>
+                ) : (
+                  <>
+                    We use cookies to improve your browsing experience and analyse site traffic. Read our{' '}
+                    <a href="/privacy.html" className="underline text-[#EB6A30] hover:text-white">
+                      Privacy Policy
+                    </a>.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -58,13 +73,13 @@ export default function CookieConsent() {
               onClick={() => choose('essential')}
               className="flex-1 py-2.5 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/15 transition-colors"
             >
-              Essential Only
+              {isGu ? 'માત્ર જરૂરી' : 'Essential Only'}
             </button>
             <button
               onClick={() => choose('all')}
               className="flex-1 py-2.5 rounded-full text-xs font-bold bg-[#EB6A30] hover:bg-[#d5571e] transition-colors"
             >
-              Accept All
+              {isGu ? 'બધા સ્વીકારો' : 'Accept All'}
             </button>
           </div>
         </motion.div>

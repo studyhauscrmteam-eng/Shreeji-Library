@@ -17,13 +17,19 @@ try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     const adminApp = getApps().length === 0 ? initializeApp({ credential: cert(serviceAccount) }) : getApps()[0];
     adminDb = getFirestore(adminApp);
+    // Vercel serverless + the Admin SDK's default gRPC transport are flaky
+    // together — Firestore reads intermittently fail (the /api/plans and
+    // /api/bookings 500s). REST is reliable on serverless and fast enough
+    // for these small reads, so force it.
+    adminDb.settings({ preferRest: true });
     adminAuth = getAuth(adminApp);
-    console.log("🔥 Firebase Admin SDK initialized for Vercel (studyhaus-crm)");
+    console.log("🔥 Firebase Admin SDK initialized for Vercel (studyhaus-crm, preferRest)");
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const adminApp = getApps().length === 0 ? initializeApp() : getApps()[0];
     adminDb = getFirestore(adminApp);
+    adminDb.settings({ preferRest: true });
     adminAuth = getAuth(adminApp);
-    console.log("🔥 Firebase Admin SDK initialized with default credentials");
+    console.log("🔥 Firebase Admin SDK initialized with default credentials (preferRest)");
   } else {
     console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT not set on Vercel — API runs in degraded mode.");
   }
@@ -214,7 +220,8 @@ app.get('/api/plans', async (req, res) => {
     const onlyActive = req.query.all !== '1';
     const filtered = onlyActive ? plans.filter((p) => (p.status || 'Active') === 'Active') : plans;
     res.json({ success: true, count: filtered.length, data: filtered, source: 'crm-live' });
-  } catch {
+  } catch (e) {
+    console.error('[plans] Firestore read failed:', e && (e.stack || e.message) || e);
     res.status(500).json({ success: false, message: 'Failed to fetch live plans' });
   }
 });
