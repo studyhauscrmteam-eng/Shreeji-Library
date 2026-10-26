@@ -409,7 +409,8 @@ async function requireOwnerAdmin(req, res) {
     const snap = await adminDb.collection('users').doc(decoded.uid).get();
     const role = snap.exists ? String(snap.data().role || '') : '';
     const isBootstrap = String(decoded.email || '').toLowerCase() === 'admin@studyhaus.com';
-    if (role !== 'Owner/Admin' && !isBootstrap) {
+    const isStaff = ['Owner/Admin', 'Owner', 'Admin', 'Manager'].includes(role) || isBootstrap;
+    if (!isStaff) {
       res.status(403).json({ error: 'Only Owner/Admin can perform this action.' });
       return null;
     }
@@ -445,6 +446,7 @@ app.post('/api/students/purge', async (req, res) => {
     const reqUid = String((req.body && req.body.uid) || '').trim();
     const reqPhone = String((req.body && req.body.phone) || '').trim();
     const reqEmail = String((req.body && req.body.email) || '').trim();
+    const reqPersonalEmail = String((req.body && (req.body.personalEmail || req.body.studentEmail)) || '').trim().toLowerCase();
 
     const uid = String(data.uid || userData.uid || reqUid || '').trim();
     const loginId = String(data.loginId || userData.loginId || '').trim();
@@ -470,7 +472,7 @@ app.post('/api/students/purge', async (req, res) => {
     };
 
     // A. Check UIDs
-    const uidCandidates = new Set([studentId, uid].filter(Boolean));
+    const uidCandidates = new Set([studentId, uid, reqUid].filter(Boolean));
     for (const cand of uidCandidates) {
       try {
         const u = await adminAuth.getUser(cand).catch(() => null);
@@ -480,8 +482,12 @@ app.post('/api/students/purge', async (req, res) => {
 
     // B. Check Emails (all variations ever used by portal/admin)
     const emailCandidates = new Set();
+    const personalEmail = String(data.personalEmail || userData.personalEmail || data.studentEmail || userData.studentEmail || reqPersonalEmail || '').trim().toLowerCase();
+    if (personalEmail && personalEmail.includes('@')) emailCandidates.add(personalEmail);
+    if (reqPersonalEmail && reqPersonalEmail.includes('@')) emailCandidates.add(reqPersonalEmail);
     if (authEmail && authEmail.includes('@')) emailCandidates.add(authEmail.toLowerCase());
     if (email && email.includes('@')) emailCandidates.add(email.toLowerCase());
+    if (reqEmail && reqEmail.includes('@')) emailCandidates.add(reqEmail.toLowerCase());
     if (loginId && loginId.includes('@')) emailCandidates.add(loginId.toLowerCase());
     if (cleanPhone) {
       emailCandidates.add(`${cleanPhone}@student.shreejilibrary.com`);

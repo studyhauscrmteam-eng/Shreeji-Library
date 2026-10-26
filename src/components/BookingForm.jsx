@@ -413,7 +413,15 @@ export default function BookingForm({ selectedPlan }) {
 
             <button
               type="button"
-              onClick={() => window.open(portalUrl, '_blank')}
+              onClick={() => {
+                const handoffParams = new URLSearchParams();
+                handoffParams.set('tab', 'signup');
+                if (formData.name) handoffParams.set('name', formData.name.trim());
+                if (formData.phone) handoffParams.set('phone', normalizePhone(formData.phone));
+                if (formData.email) handoffParams.set('email', formData.email.trim());
+                const handoffUrl = `${portalUrl}#${handoffParams.toString()}`;
+                window.open(handoffUrl, '_blank');
+              }}
               className="w-full py-4 rounded-full bg-[#B94E18] hover:bg-[#9E4213] text-white font-bold text-base transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
             >
               <span>{isGu ? 'તમારી સીટ બુકિંગ પૂર્ણ કરો →' : 'Complete your seat booking →'}</span>
