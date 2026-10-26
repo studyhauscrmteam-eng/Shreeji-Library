@@ -37,7 +37,7 @@ export default function Navbar({ onOpenBooking }) {
         <div className="flex items-center justify-between gap-4">
           
           {/* Brand Logo (Standalone, as logo image contains library name) */}
-          <a href="#top" className="flex items-center group shrink-0">
+          <a href="#top" onClick={(e) => { e.preventDefault(); window.location.reload(); }} className="flex items-center group shrink-0" title="Refresh Shreeji Library">
             <div className={`transition-all duration-300 flex items-center justify-center ${
               scrolled 
                 ? 'bg-transparent p-0 shadow-none border-0' 

@@ -4,79 +4,98 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Terms &amp; Conditions | ShreeJi Reading Library Bhavnagar</title>
-  <meta name="description" content="Terms and Conditions of ShreeJi Reading Library Bhavnagar — membership plans, seat allocation rules, study hall conduct and library usage policies explained." />
+  <meta name="description" content="Official Terms and Conditions of ShreeJi Reading Library Bhavnagar — membership fees, seat allocation, study hall conduct, and library policies." />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#983132" />
   <link rel="canonical" href="https://www.shreejilibrary.co.in/terms.html" />
-  <meta property="og:type" content="website" />
-  <meta property="og:locale" content="en_IN" />
-  <meta property="og:site_name" content="ShreeJi Reading Library" />
-  <meta property="og:title" content="Terms &amp; Conditions | ShreeJi Reading Library Bhavnagar" />
-  <meta property="og:description" content="Membership plans, seat allocation rules, study hall conduct and library usage policies of ShreeJi Reading Library Bhavnagar." />
-  <meta property="og:url" content="https://www.shreejilibrary.co.in/terms.html" />
-  <meta property="og:image" content="https://www.shreejilibrary.co.in/og-cover.webp" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Terms &amp; Conditions | ShreeJi Reading Library Bhavnagar" />
-  <meta name="twitter:description" content="Membership plans, seat allocation rules, study hall conduct and library usage policies of ShreeJi Reading Library Bhavnagar." />
-  <meta name="twitter:image" content="https://www.shreejilibrary.co.in/og-cover.webp" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF8F5; color: #201E1F; line-height: 1.7; }
-    .wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px 64px; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 24px 20px 64px; }
     header { background: #201E1F; color: #fff; padding: 36px 20px; text-align: center; }
     header h1 { font-size: 28px; }
-    header p { color: #EB6A30; font-size: 13px; margin-top: 6px; }
-    h2 { color: #983132; font-size: 19px; margin: 30px 0 8px; }
-    p, li { font-size: 15px; color: #201E1F; opacity: .9; }
-    ul { padding-left: 22px; margin-top: 6px; }
-    a { color: #983132; }
-    .back { display: inline-block; margin-top: 30px; background: #983132; color: #fff; text-decoration: none; padding: 12px 26px; border-radius: 999px; font-weight: 600; font-size: 14px; }
-    footer { text-align: center; font-size: 12px; opacity: .6; padding: 24px; }
+    header p { color: #EB6A30; font-size: 13px; margin-top: 6px; letter-spacing: 0.05em; font-weight: 600; }
+    .lang-switcher { display: flex; justify-content: center; gap: 8px; margin: 24px 0 16px; }
+    .lang-btn { background: #fff; border: 2px solid #e2e8f0; color: #64748b; padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .lang-btn.active { background: #983132; color: #fff; border-color: #983132; }
+    .term-card { background: #fff; border: 1px solid #fed7aa; border-radius: 14px; padding: 18px 22px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+    .term-title { color: #983132; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .term-desc { font-size: 14.5px; color: #334155; line-height: 1.6; }
+    .back { display: inline-block; margin-top: 24px; background: #983132; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 999px; font-weight: 700; font-size: 14px; transition: background 0.2s; }
+    .back:hover { background: #7a2526; }
+    footer { text-align: center; font-size: 12px; opacity: .7; padding: 24px; color: #64748b; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Terms &amp; Conditions</h1>
+    <h1 id="page-title">Terms &amp; Conditions</h1>
     <p>SHREEJI READING LIBRARY · BHAVNAGAR</p>
   </header>
   <div class="wrap">
-    <p><strong>Last updated:</strong> October 2026. By using our website or enrolling at ShreeJi Reading Library, you agree to the following terms.</p>
+    <div class="lang-switcher">
+      <button type="button" class="lang-btn active" id="btn-en" onclick="setLang('en')">English</button>
+      <button type="button" class="lang-btn" id="btn-gu" onclick="setLang('gu')">ગુજરાતી</button>
+    </div>
 
-    <h2>1. Membership</h2>
-    <ul>
-      <li>Membership plans are billed as displayed on our website. Fees once paid are non-refundable except at management's discretion.</li>
-      <li>Your seat/desk allocation is confirmed by library staff after your enquiry. Seat numbers may be reassigned for operational reasons with prior notice.</li>
-    </ul>
+    <p id="last-updated" style="margin-bottom: 16px; font-size: 13px; color: #64748b; text-align: center;">
+      Last updated: October 2026. By enrolling at ShreeJi Reading Library or using our services, you agree to the following terms.
+    </p>
 
-    <h2>2. Code of conduct</h2>
-    <ul>
-      <li>Strict silence must be maintained inside the study hall at all times.</li>
-      <li>Mobile phones must be on silent; calls are permitted only in the terrace refreshment lounge.</li>
-      <li>Eating inside the study hall is not allowed. Outside food and beverages (except water) are restricted to the refreshment area.</li>
-      <li>Members are responsible for their own belongings. The library is not liable for loss of personal items.</li>
-    </ul>
+    <div id="terms-content"></div>
 
-    <h2>3. Facilities</h2>
-    <ul>
-      <li>Timings: Monday – Sunday, 24 hours. Management may declare holiday closures with prior notice.</li>
-      <li>Misuse of power sockets, Wi-Fi or furniture may lead to warnings or membership suspension.</li>
-    </ul>
-
-    <h2>4. Website use</h2>
-    <ul>
-      <li>Booking enquiries submitted through this website do not guarantee admission until confirmed by our team.</li>
-      <li>Content on this website (photos, text, logo) belongs to ShreeJi Reading Library and may not be reused without permission.</li>
-      <li>This website may display advertisements served by third parties, including Google. We do not control the content of third-party advertisements. For details on how advertising cookies are used, please read our <a href="/privacy.html">Privacy Policy</a>.</li>
-    </ul>
-
-    <h2>5. Governing law</h2>
-    <p>These terms are governed by the laws of India. Any disputes shall be subject to the jurisdiction of the courts in Bhavnagar, Gujarat.</p>
-
-    <h2>6. Contact</h2>
-    <p>ShreeJi Reading Library, Near City Center, Main Road, Bhavnagar, Gujarat · <a href="tel:+916353321530">+91 63533 21530</a></p>
-
-    <a class="back" href="/">← Back to Home</a>
+    <div style="text-align: center;">
+      <a class="back" href="/" id="back-btn">Return to Home</a>
+    </div>
   </div>
-  <footer>© 2026 ShreeJi Reading Library. All rights reserved.</footer>
+  <footer>&copy; 2026 ShreeJi Reading Library. All rights reserved.</footer>
+
+  <script>
+    const TERMS = {
+      en: [
+        { title: "1. Non-Refundable & Non-Transferable Fees", desc: "All membership fees once paid are strictly non-refundable, non-transferable, and non-extendable under any circumstances except at management's sole discretion." },
+        { title: "2. Seat Allocation & Reservation", desc: "Seat bookings are subject to document verification and library management approval. Seat numbers are allocated strictly based on selected plan availability." },
+        { title: "3. Strict Study Hall Silence", desc: "Absolute pin-drop silence must be maintained in the study hall at all times. Group discussions, talking, and whispering are strictly prohibited." },
+        { title: "4. Outside Footwear Prohibited", desc: "Outside footwear (shoes, sandals) is strictly prohibited inside the study hall. Members must keep their designated desk clean and organized." },
+        { title: "5. Mobile Phone Discipline", desc: "Mobile phones must be kept on 100% silent mode (not even vibration). Attending phone calls inside the study area is strictly prohibited; use designated areas only." },
+        { title: "6. Food & Beverages Restrictions", desc: "Eating meals, snacks, or outside food inside the reading hall is prohibited. Water bottles are allowed. Refreshments are permitted only in designated areas." },
+        { title: "7. Personal Belongings Responsibility", desc: "Students are solely responsible for their personal belongings (laptops, books, chargers, cash). Management accepts no responsibility for lost or unattended items." },
+        { title: "8. Care for Library Property & Facilities", desc: "Handle library assets, desks, chairs, AC units, and charging sockets with care. Any damage caused will be charged to the student and may result in immediate expulsion." },
+        { title: "9. Document Verification & Admission Rights", desc: "Management reserves the right to verify identity documents (Aadhaar Card) and cancel admission without refund if the code of conduct is violated." },
+        { title: "10. Governing Law & Jurisdiction", desc: "These terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the competent courts in Bhavnagar, Gujarat." }
+      ],
+      gu: [
+        { title: "૧. બિન-રિફંડેબલ અને અ-બદલીપાત્ર ફી", desc: "એકવાર ચૂકવેલ સભ્યપદ ફી કોઈપણ સંજોગોમાં પરત (Non-refundable), ટ્રાન્સફર (Non-transferable) કે મુદત વધારી (Non-extendable) શકાશે નહીં." },
+        { title: "૨. સીટ ફાળવણી અને અનામત", desc: "સીટ બુકિંગ મેનેજમેન્ટની ચકાસણી અને મંજૂરીને આધીન છે. સીટ પસંદ કરેલ પ્લાનની ઉપલબ્ધતા મુજબ જ ફાળવવામાં આવશે." },
+        { title: "૩. અભ્યાસ ખંડમાં સંપૂર્ણ શાંતિ", desc: "સ્ટડી હોલમાં હંમેશા સંપૂર્ણ શાંતિ જાળવવી ફરજિયાત છે. અંદરોઅંદર વાતચીત, ચર્ચા કે ધીમેથી બોલવાની પણ સખત મનાઈ છે." },
+        { title: "૪. બહારના પગરખાં પર પ્રતિબંધ", desc: "અભ્યાસ ખંડની અંદર બહારના પગરખાં (બૂટ/ચંપલ) પહેરીને પ્રવેશવાની સખત મનાઈ છે. ડેસ્ક અને લાઈબ્રેરી પરિસર સ્વચ્છ રાખવું." },
+        { title: "૫. મોબાઇલ ફોન અને કોલ્સ નિયમ", desc: "મોબાઇલ ફોન ૧૦૦% સાયલન્ટ મોડ પર રાખવો (વાઇબ્રેશન પણ નહીં). હોલની અંદર ફોન ઉપાડવાની સખત મનાઈ છે; કોલ માટે નિયત લોબી/બાલ્કનીનો જ ઉપયોગ કરવો." },
+        { title: "૬. ખાનપાન પર પ્રતિબંધ", desc: "અભ્યાસ ખંડમાં નાસ્તો, જમવાનું કે બહારનો ખોરાક ખાવાની સખત મનાઈ છે. માત્ર પાણીની બોટલ રાખવાની છૂટ છે. નાસ્તા માટે ટેરેસ/રીફ્રેશમેન્ટ એરિયાનો ઉપયોગ કરવો." },
+        { title: "૭. વ્યક્તિગત સામાનની સુરક્ષા", desc: "પોતાના લેપટોપ, પુસ્તકો, ચાર્જર અને અંગત સામાનની સંપૂર્ણ જવાબદારી વિદ્યાર્થીની પોતાની રહેશે. ચોરી કે નુકસાન માટે મેનેજમેન્ટ જવાબદાર રહેશે નહીં." },
+        { title: "૮. મિલકત અને ઇલેક્ટ્રિકલ જાળવણી", desc: "ફર્નિચર, લાઇટ, પંખા, એસી અને ચાર્જિંગ પોઇન્ટ્સનો કાળજીપૂર્વક ઉપયોગ કરવો. કોઈપણ નુકસાન બદલ દંડ થશે અને સભ્યપદ રદ થઈ શકે છે." },
+        { title: "૯. દસ્તાવેજ ચકાસણી અને અધિકાર", desc: "ઓળખ કાર્ડ (આધાર કાર્ડ) ની ચકાસણી કરવાનો અને ગેરવર્તણૂક જણાયે કોઈપણ રિફંડ વિના સભ્યપદ રદ કરવાનો અંતિમ અધિકાર મેનેજમેન્ટનો રહેશે." },
+        { title: "૧૦. કાયદાકીય ક્ષેત્રાધિકાર", desc: "આ નિયમો ભારતના કાયદાઓ દ્વારા સંચાલિત છે. કોઈપણ વિવાદ ભાવનગર, ગુજરાતની સક્ષમ અદાલતોના અધિકારક્ષેત્ર હેઠળ રહેશે." }
+      ]
+    };
+
+    function setLang(lang) {
+      document.getElementById('btn-en').className = 'lang-btn' + (lang === 'en' ? ' active' : '');
+      document.getElementById('btn-gu').className = 'lang-btn' + (lang === 'gu' ? ' active' : '');
+      document.getElementById('page-title').textContent = lang === 'gu' ? 'નિયમો અને શરતો' : 'Terms & Conditions';
+      document.getElementById('last-updated').textContent = lang === 'gu'
+        ? 'છેલ્લે અપડેટ: ઓક્ટોબર ૨૦૨૬. શ્રીજી રીડિંગ લાઇબ્રેરીમાં પ્રવેશ મેળવીને તમે નીચેના તમામ નિયમો સાથે સંમત થાઓ છો.'
+        : 'Last updated: October 2026. By enrolling at ShreeJi Reading Library or using our services, you agree to the following terms.';
+      document.getElementById('back-btn').textContent = lang === 'gu' ? 'મુખ્ય પૃષ્ઠ પર પાછા જાઓ' : 'Return to Home';
+
+      const list = TERMS[lang];
+      const container = document.getElementById('terms-content');
+      container.innerHTML = list.map(item => `
+        <div class="term-card">
+          <div class="term-title">${item.title}</div>
+          <div class="term-desc">${item.desc}</div>
+        </div>
+      `).join('');
+    }
+    setLang('en');
+  </script>
 </body>
 </html>

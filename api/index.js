@@ -439,59 +439,156 @@ app.post('/api/students/purge', async (req, res) => {
     const snap = await adminDb.collection('students').doc(studentId).get();
     const data = snap.exists ? (snap.data() || {}) : {};
 
-    const uid = String(data.uid || '').trim();
-    const loginId = String(data.loginId || '').trim();
-    const authEmail = String(data.authEmail || '').trim();
-    const email = String(data.email || '').trim().toLowerCase();
-    const phone = normalizePhone(data.phone);
+    const userSnap = await adminDb.collection('users').doc(studentId).get().catch(() => null);
+    const userData = userSnap && userSnap.exists ? (userSnap.data() || {}) : {};
+
+    const reqUid = String((req.body && req.body.uid) || '').trim();
+    const reqPhone = String((req.body && req.body.phone) || '').trim();
+    const reqEmail = String((req.body && req.body.email) || '').trim();
+
+    const uid = String(data.uid || userData.uid || reqUid || '').trim();
+    const loginId = String(data.loginId || userData.loginId || '').trim();
+    const authEmail = String(data.authEmail || userData.authEmail || '').trim();
+    const email = String(data.email || userData.email || reqEmail || '').trim().toLowerCase();
+    const rawPhone = data.phone || userData.phone || reqPhone || '';
+    const phone = normalizePhone(rawPhone);
+    const cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : '';
 
     const removed = { auth: false, docs: 0, history: 0, claims: 0, seat: false };
 
-    // 1. Credential — this is what actually locks them out of the portal.
-    const authTargets = new Set([uid, authEmail].filter(Boolean));
-    if (!authTargets.size && loginId) {
-      authTargets.add(loginId.includes('@') ? loginId : `${loginId}@student.shreejilibrary.com`);
-    }
-    for (const target of authTargets) {
+    // 1. Exhaustive Auth Deletion — Ensures NO Firebase Auth credentials are left behind.
+    const deletedUids = new Set();
+    const deleteAuthUserSafe = async (userRecord) => {
+      if (!userRecord || !userRecord.uid || deletedUids.has(userRecord.uid)) return;
       try {
-        const user = target.includes('@')
-          ? await adminAuth.getUserByEmail(target).catch(() => null)
-          : await adminAuth.getUser(target).catch(() => null);
-        if (user) { await adminAuth.deleteUser(user.uid); removed.auth = true; }
-      } catch (_) { /* already gone */ }
+        await adminAuth.deleteUser(userRecord.uid);
+        deletedUids.add(userRecord.uid);
+        removed.auth = true;
+      } catch (e) {
+        console.warn('deleteUser error for uid', userRecord.uid, e.message);
+      }
+    };
+
+    // A. Check UIDs
+    const uidCandidates = new Set([studentId, uid].filter(Boolean));
+    for (const cand of uidCandidates) {
+      try {
+        const u = await adminAuth.getUser(cand).catch(() => null);
+        if (u) await deleteAuthUserSafe(u);
+      } catch (_) {}
     }
 
-    // 2. Core documents (only counted when they actually existed).
+    // B. Check Emails (all variations ever used by portal/admin)
+    const emailCandidates = new Set();
+    if (authEmail && authEmail.includes('@')) emailCandidates.add(authEmail.toLowerCase());
+    if (email && email.includes('@')) emailCandidates.add(email.toLowerCase());
+    if (loginId && loginId.includes('@')) emailCandidates.add(loginId.toLowerCase());
+    if (cleanPhone) {
+      emailCandidates.add(`${cleanPhone}@student.shreejilibrary.com`);
+      emailCandidates.add(`${cleanPhone}@student.studyhaus.com`);
+      emailCandidates.add(`${cleanPhone}@student.portal`);
+      emailCandidates.add(`${cleanPhone}@student.studyhaus`);
+    }
+    if (loginId && !loginId.includes('@')) {
+      emailCandidates.add(`${loginId}@student.shreejilibrary.com`);
+      emailCandidates.add(`${loginId}@student.studyhaus.com`);
+    }
+    for (const candEmail of emailCandidates) {
+      try {
+        const u = await adminAuth.getUserByEmail(candEmail).catch(() => null);
+        if (u) await deleteAuthUserSafe(u);
+      } catch (_) {}
+    }
+
+    // C. Check Phone Numbers
+    if (cleanPhone && cleanPhone.length === 10) {
+      const phoneCandidates = [`+91${cleanPhone}`, `+${cleanPhone}`];
+      for (const candPhone of phoneCandidates) {
+        try {
+          const u = await adminAuth.getUserByPhoneNumber(candPhone).catch(() => null);
+          if (u) await deleteAuthUserSafe(u);
+        } catch (_) {}
+      }
+    }
+
+    // 2. Core Documents (students, users, studentDocuments, admissions)
+    const docIdsToWipe = new Set([studentId, uid].filter(Boolean));
     for (const col of ['students', 'users', 'studentDocuments', 'admissions']) {
-      try {
-        const ref = adminDb.collection(col).doc(studentId);
-        if ((await ref.get()).exists) { await ref.delete(); removed.docs++; }
-      } catch (_) { /* best-effort */ }
+      for (const dId of docIdsToWipe) {
+        try {
+          const ref = adminDb.collection(col).doc(dId);
+          if ((await ref.get()).exists) { await ref.delete(); removed.docs++; }
+        } catch (_) {}
+      }
     }
 
-    // 3. Everything else that carried this person's history.
-    for (const col of ['payments', 'attendance', 'complaints', 'renewals', 'documents', 'notifications']) {
+    // 3. Complete Cascade Wipe of all associated student records
+    const studentQueries = [
+      adminDb.collection('payments').where('studentId', '==', studentId),
+      adminDb.collection('attendance').where('studentId', '==', studentId),
+      adminDb.collection('complaints').where('studentId', '==', studentId),
+      adminDb.collection('renewals').where('studentId', '==', studentId),
+      adminDb.collection('documents').where('studentId', '==', studentId),
+      adminDb.collection('notifications').where('studentId', '==', studentId),
+      adminDb.collection('profileUpdateRequests').where('studentId', '==', studentId),
+      adminDb.collection('seatRequests').where('studentId', '==', studentId),
+      adminDb.collection('messageLogs').where('studentId', '==', studentId),
+      adminDb.collection('mail').where('meta.studentId', '==', studentId),
+    ];
+    if (uid && uid !== studentId) {
+      studentQueries.push(
+        adminDb.collection('payments').where('uid', '==', uid),
+        adminDb.collection('attendance').where('uid', '==', uid),
+        adminDb.collection('complaints').where('uid', '==', uid),
+        adminDb.collection('profileUpdateRequests').where('uid', '==', uid),
+        adminDb.collection('seatRequests').where('uid', '==', uid)
+      );
+    }
+
+    for (const q of studentQueries) {
       try {
-        const s = await adminDb.collection(col).where('studentId', '==', studentId).get();
+        const s = await q.get();
         if (!s.empty) {
           const batch = adminDb.batch();
           s.docs.forEach((d) => batch.delete(d.ref));
           await batch.commit();
           removed.history += s.size;
         }
-      } catch (_) { /* collection may be empty */ }
+      } catch (_) {}
     }
 
-    // 4. Free the seat so nobody inherits a ghost booking.
+    // 4. Free Assigned Seats — Floor and Number Aware
     try {
+      const seatsHeld = await adminDb.collection('seats').where('assignedStudentId', '==', studentId).get();
+      for (const d of seatsHeld.docs) {
+        await d.ref.update({
+          status: 'Available',
+          assignedStudentId: null,
+          assignedStudentName: null,
+          planType: null,
+          lastUpdated: FieldValue.serverTimestamp(),
+        });
+        removed.seat = true;
+      }
+      if (uid && uid !== studentId) {
+        const seatsHeldUid = await adminDb.collection('seats').where('assignedStudentId', '==', uid).get();
+        for (const d of seatsHeldUid.docs) {
+          await d.ref.update({
+            status: 'Available',
+            assignedStudentId: null,
+            assignedStudentName: null,
+            planType: null,
+            lastUpdated: FieldValue.serverTimestamp(),
+          });
+          removed.seat = true;
+        }
+      }
       const seatNo = String(data.seatNumber || data.seatAssigned || '').trim();
       if (seatNo) {
-        const seats = await adminDb.collection('seats')
-          .where('seatNumber', '==', seatNo)
-          .get();
+        const seats = await adminDb.collection('seats').where('seatNumber', '==', seatNo).get();
         for (const d of seats.docs) {
           const sd = d.data() || {};
-          if (!sd.assignedStudentId || sd.assignedStudentId === studentId) {
+          if (!sd.assignedStudentId || sd.assignedStudentId === studentId || (uid && sd.assignedStudentId === uid)) {
             await d.ref.update({
               status: 'Available', assignedStudentId: null,
               assignedStudentName: null, planType: null,
@@ -501,19 +598,24 @@ app.post('/api/students/purge', async (req, res) => {
           }
         }
       }
-    } catch (_) { /* seat release is best-effort */ }
+    } catch (_) {}
 
-    // 5. Uniqueness claims (phone_ / email_) — drop ONLY claims whose owners
-    //    are all gone. A claim pointing at a living student belongs to someone
-    //    else and must survive: that is how we never merge two people.
+    // 5. Uniqueness Claims — Clear so the student can re-register cleanly if needed
     const claimKeys = new Set();
     if (phone) claimKeys.add(`phone_${phone}`);
+    if (cleanPhone) {
+      claimKeys.add(`phone_${cleanPhone}`);
+      claimKeys.add(`req_adm_${cleanPhone}`);
+    }
     if (loginId) {
       claimKeys.add(`phone_${normalizePhone(loginId) || loginId}`);
       claimKeys.add(`email_${loginId.toLowerCase()}`);
     }
     if (authEmail) claimKeys.add(`email_${authEmail.toLowerCase()}`);
-    if (email) claimKeys.add(`email_${email}`);
+    if (email) {
+      claimKeys.add(`email_${email}`);
+      claimKeys.add(`req_admmail_${email}`);
+    }
     for (const key of claimKeys) {
       try {
         const ref = adminDb.collection('uniqueness').doc(key);
@@ -524,13 +626,17 @@ app.post('/api/students/purge', async (req, res) => {
           ...(Array.isArray(cd.owners) ? cd.owners : []),
           cd.ownerPath || '', cd.uid || '',
         ].map(pathId).filter(Boolean);
-        if (!ownerIds.length) continue;
+        if (!ownerIds.length) {
+          await ref.delete();
+          removed.claims++;
+          continue;
+        }
         let allGone = true;
         for (const id of ownerIds) {
           if ((await adminDb.collection('students').doc(id).get()).exists) { allGone = false; break; }
         }
         if (allGone) { await ref.delete(); removed.claims++; }
-      } catch (_) { /* keep claims we cannot reason about */ }
+      } catch (_) {}
     }
 
     return res.status(200).json({ ok: true, removed });
