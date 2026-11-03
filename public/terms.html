@@ -77,6 +77,33 @@
       ]
     };
 
+        let currentLang = 'en';
+
+    // Live sync with CRM settings/terms_and_conditions
+    (function loadLiveTerms() {
+      fetch("https://firestore.googleapis.com/v1/projects/studyhaus-crm/databases/(default)/documents/settings/terms_and_conditions")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.fields && data.fields.terms && data.fields.terms.arrayValue && data.fields.terms.arrayValue.values) {
+            var rawList = data.fields.terms.arrayValue.values.map(function(v) {
+              var m = v.mapValue ? v.mapValue.fields : {};
+              return {
+                titleEn: m.titleEn ? m.titleEn.stringValue : '',
+                titleGu: m.titleGu ? m.titleGu.stringValue : '',
+                descEn: m.descEn ? m.descEn.stringValue : '',
+                descGu: m.descGu ? m.descGu.stringValue : ''
+              };
+            });
+            if (rawList.length > 0) {
+              TERMS.en = rawList.map(function(t) { return { title: t.titleEn, desc: t.descEn }; });
+              TERMS.gu = rawList.map(function(t) { return { title: t.titleGu, desc: t.descGu }; });
+              setLang(currentLang);
+            }
+          }
+        })
+        .catch(function() {});
+    })();
+
     function setLang(lang) {
       document.getElementById('btn-en').className = 'lang-btn' + (lang === 'en' ? ' active' : '');
       document.getElementById('btn-gu').className = 'lang-btn' + (lang === 'gu' ? ' active' : '');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, CheckCircle2, AlertCircle, Loader2, Sparkles, ChevronDown, Check, ExternalLink, ShieldCheck, FileText, X, Lock } from 'lucide-react';
-import { submitWebsiteLead } from '../firebase';
+import { submitWebsiteLead, fetchTermsAndConditions } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlans } from '../context/PlansContext';
 
@@ -31,6 +31,39 @@ const TERMS_RULES = {
     { title: "૯. દસ્તાવેજ ચકાસણી અને અધિકાર", desc: "ઓળખ કાર્ડ (આધાર કાર્ડ) ની ચકાસણી કરવાનો અને ગેરવર્તણૂક જણાયે કોઈપણ રિફંડ વિના સભ્યપદ રદ કરવાનો અંતિમ અધિકાર મેનેજમેન્ટનો રહેશે." },
     { title: "૧૦. કાયદાકીય ક્ષેત્રાધિકાર", desc: "આ નિયમો ભારતના કાયદાઓ દ્વારા સંચાલિત છે. કોઈપણ વિવાદ ભાવનગર, ગુજરાતની સક્ષમ અદાલતોના અધિકારક્ષેત્ર હેઠળ રહેશે." }
   ]
+};
+
+// Library tier selection: Normal vs Premium
+export const PLAN_TIERS = [
+  {
+    id: 'normal',
+    nameEn: 'Normal Library',
+    nameGu: 'સામાન્ય લાઈબ્રેરી (Normal)',
+    shortEn: 'Normal',
+    shortGu: 'સામાન્ય (Normal)',
+    badgeEn: 'Regular',
+    badgeGu: 'સામાન્ય',
+    descEn: 'Standard study hall & quiet reading cubicles (Night ₹600, Rotational ₹800, Fixed ₹1000)',
+    descGu: 'સ્ટાન્ડર્ડ સ્ટડી હોલ અને શાંત ક્યુબિકલ (નાઈટ ₹600, રોટેશનલ ₹800, ફિક્સ્ડ ₹1000)'
+  },
+  {
+    id: 'premium',
+    nameEn: 'Premium Library',
+    nameGu: 'પ્રીમિયમ લાઈબ્રેરી (Premium)',
+    shortEn: 'Premium',
+    shortGu: 'પ્રીમિયમ (Premium)',
+    badgeEn: 'Premium',
+    badgeGu: 'પ્રીમિયમ',
+    descEn: 'Premium ergonomic cubicles & extra comfort reading space (Night ₹800, Rotational ₹1000, Fixed ₹1200)',
+    descGu: 'અત્યાધુનિક એર્ગોનોમિક ક્યુબિકલ્સ અને પ્રીમિયમ સુવિધા (નાઈટ ₹800, રોટેશનલ ₹1000, ફિક્સ્ડ ₹1200)'
+  }
+];
+
+export const isPremiumPlan = (plan) => {
+  if (!plan) return false;
+  if (plan.tier === 'premium' || plan.isPremium === true || plan.libraryType === 'premium') return true;
+  const name = String(plan.nameEn || plan.planName || plan.id || '').toLowerCase();
+  return name.includes('premium');
 };
 
 // Student portal login — the success panel hands the visitor off to the portal
@@ -86,6 +119,10 @@ export default function BookingForm({ selectedPlan }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [phoneError, setPhoneError] = useState('');
+  const [selectedTier, setSelectedTier] = useState('normal');
+  const [tierDropdownOpen, setTierDropdownOpen] = useState(false);
+  const tierDropdownRef = useRef(null);
+  const [termsRules, setTermsRules] = useState(TERMS_RULES);
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const planDropdownRef = useRef(null);
   // Regenerated on every "Submit another request" so each fresh form gets a
@@ -174,6 +211,39 @@ export default function BookingForm({ selectedPlan }) {
     }
   }, [selectedPlan, plans]);
 
+  // Close the tier dropdown on outside click or Escape.
+  useEffect(() => {
+    if (!tierDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (tierDropdownRef.current && !tierDropdownRef.current.contains(e.target)) {
+        setTierDropdownOpen(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setTierDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [tierDropdownOpen]);
+
+  // Load live Terms & Conditions from Firestore (synced with CRM Website Manager)
+  useEffect(() => {
+    let mounted = true;
+    fetchTermsAndConditions().then((live) => {
+      if (mounted && Array.isArray(live) && live.length > 0) {
+        setTermsRules({
+          en: live.map(t => ({ title: t.titleEn, desc: t.descEn })),
+          gu: live.map(t => ({ title: t.titleGu, desc: t.descGu }))
+        });
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   // Close the plan dropdown on outside click or Escape.
   useEffect(() => {
     if (!planDropdownOpen) return;
@@ -211,7 +281,35 @@ export default function BookingForm({ selectedPlan }) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const selectedPlanObj = plans?.find((p) => p.id === formData.planId) || plans?.[0] || null;
+  // Filter plans dynamically based on the selected tier (Normal vs Premium)
+  const availablePlans = (plans || []).filter((p) => {
+    const isPrem = isPremiumPlan(p);
+    return selectedTier === 'premium' ? isPrem : !isPrem;
+  });
+
+  const selectedTierObj = PLAN_TIERS.find((t) => t.id === selectedTier) || PLAN_TIERS[0];
+  const selectedPlanObj = availablePlans?.find((p) => p.id === formData.planId) || availablePlans?.[0] || null;
+
+  // When selectedTier changes, guarantee formData.planId points to a valid plan in availablePlans
+  useEffect(() => {
+    if (availablePlans.length > 0) {
+      if (!availablePlans.some((p) => p.id === formData.planId)) {
+        setFormData((prev) => ({ ...prev, planId: availablePlans[0].id }));
+      }
+    }
+  }, [selectedTier, plans]);
+
+  // When a plan is chosen from MembershipPricing section, auto-select its tier
+  useEffect(() => {
+    if (selectedPlan && plans && plans.length > 0) {
+      const match = plans.find((p) => p.id === selectedPlan);
+      if (match) {
+        const tier = isPremiumPlan(match) ? 'premium' : 'normal';
+        setSelectedTier(tier);
+        setFormData((prev) => ({ ...prev, planId: match.id }));
+      }
+    }
+  }, [selectedPlan, plans]);
 
   const handleReset = () => {
     submissionKeyRef.current = makeSubmissionKey();
@@ -220,6 +318,8 @@ export default function BookingForm({ selectedPlan }) {
     setPhoneError('');
     setTermsAccepted(false);
     setHasScrolledTerms(false);
+    setSelectedTier('normal');
+    setTierDropdownOpen(false);
     setFormData({ name: '', phone: '', email: '', planId: formData.planId, message: '' });
     setPlanDropdownOpen(false);
   };
@@ -276,6 +376,9 @@ export default function BookingForm({ selectedPlan }) {
         name: formData.name.trim(),
         phone: cleanPhone,
         email: (formData.email || '').trim(),
+        libraryType: selectedTier === 'premium' ? 'Premium' : 'Normal',
+        libraryTypeName: selectedTier === 'premium' ? 'Premium Library' : 'Normal Library',
+        planType: selectedTier === 'premium' ? 'Premium' : 'Normal',
         planId: selectedPlanObj?.id || formData.planId || '',
         planName: selectedPlanObj ? selectedPlanObj.nameEn : '',
         message: formData.message || '',
@@ -497,7 +600,7 @@ export default function BookingForm({ selectedPlan }) {
 
           </div>
 
-          {/* Row 2: Email Address and Preferred Plan */}
+          {/* Row 2: Email Address and Library Selection (Select Library before selecting a plan) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
             <div>
@@ -514,107 +617,196 @@ export default function BookingForm({ selectedPlan }) {
               />
             </div>
 
+            {/* Select Library Type: Normal vs Premium */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4] mb-2">
-                {t('booking.planSelect')}
+                {t('booking.librarySelect')}
               </label>
-              <div ref={planDropdownRef} className="relative">
+              <div ref={tierDropdownRef} className="relative">
                 <button
                   type="button"
-                  onClick={() => setPlanDropdownOpen((open) => !open)}
+                  onClick={() => setTierDropdownOpen((open) => !open)}
                   aria-haspopup="listbox"
-                  aria-expanded={planDropdownOpen}
-                  disabled={plansBusy}
-                  className={`w-full px-4 py-3.5 rounded-2xl bg-white text-[#201E1F] text-sm font-medium flex items-center justify-between gap-3 transition-all border-2 disabled:opacity-70 disabled:cursor-wait ${
-                    planDropdownOpen ? 'border-[#EB6A30]' : 'border-transparent'
+                  aria-expanded={tierDropdownOpen}
+                  className={`w-full px-4 py-3.5 rounded-2xl bg-white text-[#201E1F] text-sm font-medium flex items-center justify-between gap-3 transition-all border-2 ${
+                    tierDropdownOpen ? 'border-[#EB6A30]' : 'border-transparent'
                   } focus:outline-none focus:border-[#EB6A30]`}
                 >
-                  {plansBusy ? (
-                    <span className="text-gray-500">
-                      {isGu ? 'પ્લાન લોડ થઈ રહ્યા છે…' : 'Loading plans…'}
+                  <span className="flex items-center justify-between gap-3 flex-1 min-w-0">
+                    <span className="truncate font-semibold">
+                      {isGu ? selectedTierObj.shortGu : selectedTierObj.shortEn}
                     </span>
-                  ) : selectedPlanObj ? (
-                    <span className="flex items-center justify-between gap-3 flex-1 min-w-0">
-                      <span className="truncate font-semibold">
-                        {isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn}
-                      </span>
-                      <span className="shrink-0 text-xs font-bold text-white bg-[#983132] px-2.5 py-1 rounded-full">
-                        ₹{selectedPlanObj.price}{selectedPlanObj.duration ? ` · ${isGu ? (selectedPlanObj.durationGu || selectedPlanObj.duration) : selectedPlanObj.duration}` : ''}
-                      </span>
+                    <span className={`shrink-0 text-[10px] font-bold text-white px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                      selectedTier === 'premium' ? 'bg-[#983132]' : 'bg-[#EB6A30]'
+                    }`}>
+                      {isGu ? selectedTierObj.badgeGu : selectedTierObj.badgeEn}
                     </span>
-                  ) : (
-                    <span className="text-gray-500">
-                      {isGu ? 'કોઈ પ્લાન ઉપલબ્ધ નથી' : 'No plans available'}
-                    </span>
-                  )}
-                  <ChevronDown className={`w-4 h-4 shrink-0 text-[#983132] transition-transform duration-200 ${planDropdownOpen ? 'rotate-180' : ''}`} />
+                  </span>
+                  <ChevronDown className={`w-4 h-4 shrink-0 text-[#983132] transition-transform duration-200 ${tierDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {plansError && plans.length === 0 && (
-                  <p className="mt-1.5 text-[11px] text-amber-300">
-                    {isGu ? 'પ્લાન લોડ થઈ શક્યા નથી. ' : 'Could not load plans. '}
-                    <button type="button" onClick={refreshPlans} className="underline font-bold hover:text-white">
-                      {isGu ? 'ફરી પ્રયાસ કરો' : 'Retry'}
-                    </button>
-                  </p>
-                )}
-
                 <AnimatePresence>
-                  {planDropdownOpen && (
+                  {tierDropdownOpen && (
                     <motion.div
                       initial={{ opacity: 0, y: -8, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.98 }}
                       transition={{ duration: 0.18 }}
-                      className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden"
+                      className="absolute z-40 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden"
                     >
-                    <ul
-                      role="listbox"
-                      className="p-1.5 max-h-72 overflow-y-auto overscroll-contain plan-dropdown-scroll"
-                    >
-                      {plans.map((p) => {
-                        const isSelected = p.id === formData.planId;
-                        return (
-                          <li key={p.id}>
-                            <button
-                              type="button"
-                              role="option"
-                              aria-selected={isSelected}
-                              onClick={() => {
-                                setFormData((prev) => ({ ...prev, planId: p.id }));
-                                setPlanDropdownOpen(false);
-                              }}
-                              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-colors ${
-                                isSelected ? 'bg-[#FFF0E8]' : 'hover:bg-[#FFF8F5]'
-                              }`}
-                            >
-                              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                isSelected ? 'border-[#EB6A30] bg-[#EB6A30] text-white' : 'border-gray-300 text-transparent'
-                              }`}>
-                                <Check className="w-3 h-3 stroke-[3]" />
-                              </span>
-                              <span className="flex-1 min-w-0">
-                                <span className="block text-sm font-bold truncate">
-                                  {isGu ? p.nameGu : p.nameEn}
+                      <ul role="listbox" className="p-1.5 max-h-72 overflow-y-auto overscroll-contain plan-dropdown-scroll">
+                        {PLAN_TIERS.map((tier) => {
+                          const isSelected = tier.id === selectedTier;
+                          return (
+                            <li key={tier.id}>
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  setSelectedTier(tier.id);
+                                  setTierDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-colors ${
+                                  isSelected ? 'bg-[#FFF0E8]' : 'hover:bg-[#FFF8F5]'
+                                }`}
+                              >
+                                <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                  isSelected ? 'border-[#EB6A30] bg-[#EB6A30] text-white' : 'border-gray-300 text-transparent'
+                                }`}>
+                                  <Check className="w-3 h-3 stroke-[3]" />
                                 </span>
-                                <span className="block text-[11px] text-[#201E1F]/60 truncate">
-                                  {isGu ? p.taglineGu : p.taglineEn}
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-sm font-bold truncate">
+                                    {isGu ? tier.nameGu : tier.nameEn}
+                                  </span>
+                                  <span className="block text-[11px] text-[#201E1F]/60 truncate">
+                                    {isGu ? tier.descGu : tier.descEn}
+                                  </span>
                                 </span>
-                              </span>
-                              <span className="shrink-0 text-xs font-extrabold text-[#983132]">
-                                ₹{p.price}{p.duration ? ` / ${isGu ? (p.durationGu || p.duration) : p.duration}` : ''}
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                                <span className={`shrink-0 text-[10px] font-bold text-white px-2 py-0.5 rounded-full uppercase ${
+                                  tier.id === 'premium' ? 'bg-[#983132]' : 'bg-[#EB6A30]'
+                                }`}>
+                                  {isGu ? tier.badgeGu : tier.badgeEn}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             </div>
 
+          </div>
+
+          {/* Row 3: Select Membership Plan (displayed dynamically according to selected tier) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#F5E4E4]">
+                {t('booking.planSelect')}
+              </label>
+              <span className="text-[11px] text-[#F5E4E4]/80 font-semibold">
+                {isGu ? `(${selectedTier === 'premium' ? 'પ્રીમિયમ પ્લાન' : 'સામાન્ય પ્લાન'})` : `(${selectedTier === 'premium' ? 'Premium Plans' : 'Normal Plans'})`}
+              </span>
+            </div>
+            <div ref={planDropdownRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setPlanDropdownOpen((open) => !open)}
+                aria-haspopup="listbox"
+                aria-expanded={planDropdownOpen}
+                disabled={plansBusy}
+                className={`w-full px-4 py-3.5 rounded-2xl bg-white text-[#201E1F] text-sm font-medium flex items-center justify-between gap-3 transition-all border-2 disabled:opacity-70 disabled:cursor-wait ${
+                  planDropdownOpen ? 'border-[#EB6A30]' : 'border-transparent'
+                } focus:outline-none focus:border-[#EB6A30]`}
+              >
+                {plansBusy ? (
+                  <span className="text-gray-500">
+                    {isGu ? 'પ્લાન લોડ થઈ રહ્યા છે…' : 'Loading plans…'}
+                  </span>
+                ) : selectedPlanObj ? (
+                  <span className="flex items-center justify-between gap-3 flex-1 min-w-0">
+                    <span className="truncate font-semibold">
+                      {isGu ? selectedPlanObj.nameGu : selectedPlanObj.nameEn}
+                    </span>
+                    <span className="shrink-0 text-xs font-bold text-white bg-[#983132] px-2.5 py-1 rounded-full">
+                      ₹{selectedPlanObj.price}{selectedPlanObj.duration ? ` · ${isGu ? (selectedPlanObj.durationGu || selectedPlanObj.duration) : selectedPlanObj.duration}` : ''}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-gray-500">
+                    {isGu ? 'આ લાઈબ્રેરી માટે કોઈ પ્લાન ઉપલબ્ધ નથી' : 'No plans available for this library'}
+                  </span>
+                )}
+                <ChevronDown className={`w-4 h-4 shrink-0 text-[#983132] transition-transform duration-200 ${planDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {plansError && availablePlans.length === 0 && (
+                <p className="mt-1.5 text-[11px] text-amber-300">
+                  {isGu ? 'પ્લાન લોડ થઈ શક્યા નથી. ' : 'Could not load plans. '}
+                  <button type="button" onClick={refreshPlans} className="underline font-bold hover:text-white">
+                    {isGu ? 'ફરી પ્રયાસ કરો' : 'Retry'}
+                  </button>
+                </p>
+              )}
+
+              <AnimatePresence>
+                {planDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute z-30 mt-2 w-full rounded-2xl bg-white text-[#201E1F] shadow-2xl border border-[#F5E4E4] overflow-hidden"
+                  >
+                  <ul
+                    role="listbox"
+                    className="p-1.5 max-h-72 overflow-y-auto overscroll-contain plan-dropdown-scroll"
+                  >
+                    {availablePlans.map((p) => {
+                      const isSelected = p.id === formData.planId;
+                      return (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, planId: p.id }));
+                              setPlanDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-colors ${
+                              isSelected ? 'bg-[#FFF0E8]' : 'hover:bg-[#FFF8F5]'
+                            }`}
+                          >
+                            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected ? 'border-[#EB6A30] bg-[#EB6A30] text-white' : 'border-gray-300 text-transparent'
+                            }`}>
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-sm font-bold truncate">
+                                {isGu ? p.nameGu : p.nameEn}
+                              </span>
+                              <span className="block text-[11px] text-[#201E1F]/60 truncate">
+                                {isGu ? p.taglineGu : p.taglineEn}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-xs font-extrabold text-[#983132]">
+                              ₹{p.price}{p.duration ? ` / ${isGu ? (p.durationGu || p.duration) : p.duration}` : ''}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Row 3: Message / Exam Goal */}
@@ -805,7 +997,7 @@ export default function BookingForm({ selectedPlan }) {
                     className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-3.5 text-xs sm:text-sm text-[#F5E4E4] leading-relaxed overscroll-contain"
                     style={{ scrollbarWidth: 'thin', scrollbarColor: '#EB6A30 rgba(255,255,255,0.1)' }}
                   >
-                    {TERMS_RULES[termsLang].map((rule, idx) => (
+                    {(termsRules[termsLang] || TERMS_RULES[termsLang] || []).map((rule, idx) => (
                       <div key={idx} className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
                         <div className="font-bold text-[#EB6A30] text-xs sm:text-sm">
                           {rule.title}

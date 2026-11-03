@@ -141,6 +141,17 @@ export const fetchDirectPlans = async () => {
 // settings/website_content.content = { hero, disciplines, faqs, testimonials }.
 // Returns null when missing/unreadable — every component falls back to its
 // built-in defaults, so the site never breaks offline.
+// Fetch live Terms & Conditions managed from CRM (Website -> Terms & Conditions):
+// settings/terms_and_conditions.terms = Array of { id, order, titleEn, titleGu, descEn, descGu }
+export const fetchTermsAndConditions = async () => {
+  if (!db) throw new Error('Firebase is not configured.');
+  await ensureAnon();
+  const snap = await getDoc(doc(db, 'settings', 'terms_and_conditions'));
+  if (!snap.exists()) return null;
+  const data = snap.data() || {};
+  return (Array.isArray(data.terms) && data.terms.length > 0) ? data.terms : null;
+};
+
 export const fetchSiteContent = async () => {
   if (!db) throw new Error('Firebase is not configured.');
   await ensureAnon();
@@ -192,6 +203,8 @@ export const submitWebsiteLead = async ({
   message = '',
   planId = '',
   planName = '',
+  libraryId = '',
+  libraryName = '',
   submissionKey = '',
 }) => {
   if (!db) throw new Error('Firebase is not configured. Please try again later.');
@@ -231,6 +244,11 @@ export const submitWebsiteLead = async ({
     message: cleanMessage,
     planId: cleanPlanId,
     planName: cleanPlanName,
+    libraryType: cap(String(libraryType || '').trim(), 60),
+    libraryTypeName: cap(String(libraryTypeName || '').trim(), 120),
+    libraryId: cap(String(libraryId || '').trim(), 60),
+    libraryName: cap(String(libraryName || '').trim(), 120),
+    library: cap(String(libraryName || '').trim(), 120),
     source: 'Website',
     leadStatus: 'New',
     status: 'Active',
